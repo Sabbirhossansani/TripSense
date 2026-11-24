@@ -1,0 +1,47 @@
+/* Utility notices aligned to Editorial Adventure Palette */
+.offline-notice-banner {
+  background: var(--brass-soft);
+  border: 1px solid #E5C88B;
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: #6B4A14;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.offline-notice-banner .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--safety-orange);
+  display: inline-block;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+.error-notice-banner {
+  background: #FFF1EE;
+  border: 1px solid #F7BEB3;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #9A2B14;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.error-notice-banner button {
+  background: var(--safety-orange);
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}

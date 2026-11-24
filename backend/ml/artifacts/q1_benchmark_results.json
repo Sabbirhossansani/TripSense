@@ -1,0 +1,202 @@
+{
+  "model_name": "TripSense-FairNet",
+  "backbone": "openai/clip-vit-base-patch32",
+  "embedding_dim": 512,
+  "device_trained": "cuda (NVIDIA GeForce RTX 3050 6GB Laptop GPU)",
+  "training_time_sec": 75.2,
+  "datasets": {
+    "group_poi_benchmark": "CRUISEResearchGroup/Massive-STEPS-Sydney",
+    "total_checkins_loaded": 29900,
+    "unique_venues": 3721,
+    "train_groups": 595,
+    "val_groups": 127,
+    "test_groups": 128,
+    "rag_benchmark": "osunlp/TravelPlanner (validation)"
+  },
+  "fairnet_training": {
+    "epochs": 20,
+    "initial_loss": 0.6673,
+    "final_loss": 0.4034,
+    "loss_curve": [
+      0.6673,
+      0.6131,
+      0.5711,
+      0.5579,
+      0.5438,
+      0.5466,
+      0.5151,
+      0.5062,
+      0.4899,
+      0.4747,
+      0.4568,
+      0.4596,
+      0.4356,
+      0.4207,
+      0.4245,
+      0.4077,
+      0.3994,
+      0.3957,
+      0.4063,
+      0.4034
+    ],
+    "best_val_hit10": 0.2047,
+    "ablation_nofair_val_hit10": 0.1417,
+    "total_parameters": 334019
+  },
+  "group_consensus_comparison": {
+    "Popularity": {
+      "ndcg5": 0.0258,
+      "ndcg10": 0.0274,
+      "hit10": 14.84,
+      "gini_index": 0.0034,
+      "min_member_sat": 93.1,
+      "eco_coverage_pct": 59.4,
+      "p_value_ndcg10": 0.365993,
+      "p_value_gini": 3e-06
+    },
+    "Average Cosine": {
+      "ndcg5": 0.0064,
+      "ndcg10": 0.0142,
+      "hit10": 9.38,
+      "gini_index": 0.0025,
+      "min_member_sat": 95.99,
+      "eco_coverage_pct": 62.24,
+      "p_value_ndcg10": 0.013069,
+      "p_value_gini": 0.764446
+    },
+    "Least-Misery": {
+      "ndcg5": 0.009,
+      "ndcg10": 0.0116,
+      "hit10": 5.47,
+      "gini_index": 0.0016,
+      "min_member_sat": 96.13,
+      "eco_coverage_pct": 62.65,
+      "p_value_ndcg10": 0.009042,
+      "p_value_gini": 0.0
+    },
+    "LightGBM GBDT": {
+      "ndcg5": 0.0361,
+      "ndcg10": 0.0486,
+      "hit10": 24.22,
+      "gini_index": 0.0032,
+      "min_member_sat": 92.69,
+      "eco_coverage_pct": 61.44,
+      "p_value_ndcg10": 0.138072,
+      "p_value_gini": 0.000627
+    },
+    "FairNet (w/o Fairness)": {
+      "ndcg5": 0.0136,
+      "ndcg10": 0.0168,
+      "hit10": 8.59,
+      "gini_index": 0.0025,
+      "min_member_sat": 92.34,
+      "eco_coverage_pct": 58.57,
+      "p_value_ndcg10": 0.056651,
+      "p_value_gini": 0.941231
+    },
+    "TripSense-FairNet (Ours)": {
+      "ndcg5": 0.0258,
+      "ndcg10": 0.0352,
+      "hit10": 17.97,
+      "gini_index": 0.0025,
+      "min_member_sat": 92.39,
+      "eco_coverage_pct": 59.4
+    }
+  },
+  "shap_feature_importance": [
+    {
+      "feature": "Crowd Congestion",
+      "importance_pct": 44.82
+    },
+    {
+      "feature": "Max Member Similarity",
+      "importance_pct": 22.41
+    },
+    {
+      "feature": "Min Member Similarity",
+      "importance_pct": 10.91
+    },
+    {
+      "feature": "Quality Rating",
+      "importance_pct": 7.29
+    },
+    {
+      "feature": "Mean Taste Similarity",
+      "importance_pct": 6.96
+    },
+    {
+      "feature": "Budget Gap",
+      "importance_pct": 3.84
+    },
+    {
+      "feature": "Ticket Cost",
+      "importance_pct": 2.97
+    },
+    {
+      "feature": "Eco Sustainability",
+      "importance_pct": 0.79
+    },
+    {
+      "feature": "Spatial Distance",
+      "importance_pct": 0.0
+    },
+    {
+      "feature": "Indoor Shelter",
+      "importance_pct": 0.0
+    },
+    {
+      "feature": "Hidden Gem Flag",
+      "importance_pct": 0.0
+    },
+    {
+      "feature": "Local SME Revenue",
+      "importance_pct": 0.0
+    }
+  ],
+  "active_swipe_learning_curve": {
+    "eval_users": 120,
+    "swipes": [
+      1,
+      3,
+      5,
+      7,
+      10
+    ],
+    "active_bayesian_ndcg10": [
+      0.0973,
+      0.1262,
+      0.1355,
+      0.1418,
+      0.1552
+    ],
+    "random_quiz_ndcg10": [
+      0.1039,
+      0.1315,
+      0.1387,
+      0.1392,
+      0.1579
+    ]
+  },
+  "travelplanner_rag_evaluation": {
+    "benchmark": "osunlp/TravelPlanner (validation)",
+    "num_tasks": 180,
+    "avg_verify_ms": 0.716,
+    "published_icml2024_zeroshot_final_pass": {
+      "gpt_3_5_pct": 0.6,
+      "gpt_4_pct": 4.4
+    },
+    "vanilla_llm": {
+      "mode": "unconstrained_greedy_baseline",
+      "entity_grounding_pct": 37.8,
+      "budget_feasibility_pct": 47.8,
+      "final_pass_rate_pct": 16.1,
+      "hallucination_rate_pct": 62.2
+    },
+    "tripsense_neuro_symbolic_rag": {
+      "entity_grounding_pct": 53.3,
+      "budget_feasibility_pct": 100.0,
+      "final_pass_rate_pct": 53.3,
+      "hallucination_rate_pct": 46.7
+    }
+  }
+}
