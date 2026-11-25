@@ -1,8 +1,17 @@
-import React from "react";
-import { Star, Car, Shield, Sparkles, ShieldAlert, CalendarCheck, Leaf } from "lucide-react";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Star,
+  Car,
+  ShieldAlert,
+  CalendarCheck,
+  Leaf,
+  ChevronDown,
+  Sparkles,
+  Home,
+} from "lucide-react";
 import { getSpotImageUrl } from "../assets/images";
 import { formatCurrency } from "../api/client";
-import { TiltCard } from "./MotionPrimitives";
 
 export default function SpotCard({
   spot,
@@ -14,235 +23,181 @@ export default function SpotCard({
   currentMemberName = "Rahat",
   currency = "BDT",
 }) {
+  const [showWhy, setShowWhy] = useState(false);
   const imageUrl = getSpotImageUrl(spot);
   const why = spot.why_this || {};
-  const badges = why.badges || [];
   const isSub = Boolean(spot.is_weather_substitute);
-
-  const crowdLevel = spot.crowd_level || "Medium";
-  const isHiddenGem = Boolean(spot.hidden_gem);
-  let crowdPercent = 50;
-  let crowdColor = "#C9933B";
-  let crowdLabel = "Moderate Flow (50%)";
-
-  if (isHiddenGem || crowdLevel.toLowerCase() === "low") {
-    crowdPercent = 25;
-    crowdColor = "#25463B";
-    crowdLabel = "Peaceful Gem (25%)";
-  } else if (crowdLevel.toLowerCase() === "high") {
-    crowdPercent = 85;
-    crowdColor = "#E85D2A";
-    crowdLabel = "Tourist Peak (85%)";
-  }
+  const memberBreakdown = spot.group_consensus?.member_breakdown || {};
 
   return (
-    <TiltCard
-      onClick={() => onSelect(spot)}
-      className="spot-card"
-      style={{
-        background: "#FFFFFF",
-        borderRadius: "20px",
-        border: isSub ? "2px solid var(--alpine-moss)" : "1px solid var(--stone-border)",
-        padding: "16px",
-        marginBottom: "12px",
-        boxShadow: isSub ? "0 8px 20px rgba(37, 70, 59, 0.14)" : "0 4px 14px rgba(26, 29, 28, 0.04)",
-        cursor: "pointer",
-        position: "relative",
-      }}
-    >
-      {/* Transit Pill */}
+    <div className="mb-3.5">
+      {/* Subtle Transit Connector between stops */}
       {index > 0 && spot.transit_est_mins !== undefined && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "11px",
-            color: "var(--granite-600)",
-            marginBottom: "10px",
-            paddingBottom: "8px",
-            borderBottom: "1px dashed var(--stone-border)",
-            fontWeight: 600,
-          }}
-        >
-          <Car size={13} color="#E85D2A" />
+        <div className="flex items-center gap-2 pl-5 py-1.5 text-[11px] font-medium text-[#5A605C]">
+          <span className="w-px h-4 bg-[#DDD6C7]" />
+          <Car className="w-3.5 h-3.5 text-[#D94E28]" />
           <span className="font-mono-num">
-            {spot.transit_est_mins > 0 ? `${spot.transit_est_mins} mins drive` : "Walking distance"}
-            {spot.transit_from_prev_km ? ` (${spot.transit_from_prev_km} km)` : ""}
+            {spot.transit_est_mins > 0 ? `${spot.transit_est_mins} min` : "Walk"}
+            {spot.transit_from_prev_km ? ` • ${spot.transit_from_prev_km} km` : ""}
           </span>
         </div>
       )}
 
-      {/* Body */}
-      <div style={{ display: "flex", gap: "14px" }}>
-        <div style={{ position: "relative", width: "92px", height: "92px", flexShrink: 0 }}>
-          <img
-            src={imageUrl}
-            alt={spot.name}
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "14px", background: "var(--stone-muted)" }}
-            loading="lazy"
-          />
-          <div
-            className="font-mono-num"
-            style={{
-              position: "absolute",
-              top: "-6px",
-              left: "-6px",
-              width: "26px",
-              height: "26px",
-              borderRadius: "50%",
-              background: isSub ? "var(--alpine-moss)" : "var(--safety-orange)",
-              color: "#FFFFFF",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "12px",
-              fontWeight: 800,
-              boxShadow: "0 3px 8px rgba(0,0,0,0.24)",
-              border: "2px solid #FFFFFF",
-            }}
-          >
-            {index + 1}
-          </div>
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--safety-orange)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              {spot.scheduled_slot || `Stop #${index + 1}`}
-            </span>
-            <span className="font-mono-num" style={{ fontSize: "12px", fontWeight: 700, color: "var(--granite-950)", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-              <Star size={12} fill="#C9933B" color="#C9933B" />
-              {spot.rating}
-            </span>
-          </div>
-
-          <h4 className="font-display" style={{ margin: "3px 0 4px 0", fontSize: "16px", fontWeight: 800, color: "var(--granite-950)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {spot.name}
-          </h4>
-
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", fontSize: "12px", color: "var(--granite-600)", marginBottom: "8px" }}>
-            <span style={{ fontWeight: 700, color: "var(--granite-800)" }}>{spot.category}</span>
-            <span>•</span>
-            <span className="font-mono-num" style={{ fontWeight: 700, color: "var(--alpine-moss)" }}>
-              {spot.estimated_cost_bdt > 0 ? formatCurrency(spot.estimated_cost_bdt, currency) : "Free"}
-            </span>
-            {spot.local_sme && (
-              <>
-                <span>•</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", color: "var(--alpine-moss)", fontWeight: 700, fontSize: "11px" }}>
-                  <Leaf size={11} /> Local SME
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Crowd Gauge */}
-          <div style={{ marginBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{ flex: 1, height: "5px", background: "var(--stone-muted)", borderRadius: "999px", overflow: "hidden" }}>
-              <div style={{ width: `${crowdPercent}%`, height: "100%", background: crowdColor, borderRadius: "999px" }} />
-            </div>
-            <span style={{ fontSize: "10px", fontWeight: 700, color: crowdColor, whiteSpace: "nowrap" }}>
-              {crowdLabel}
-            </span>
-          </div>
-
-          {/* Badges */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-            {badges.slice(0, 3).map((badge, bIdx) => (
-              <span
-                key={bIdx}
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  padding: "3px 8px",
-                  borderRadius: "8px",
-                  background: isSub ? "var(--alpine-moss-soft)" : "var(--bg-surface)",
-                  color: isSub ? "var(--alpine-moss)" : "var(--granite-800)",
-                  border: "1px solid var(--stone-border)",
-                }}
-              >
-                {badge}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Actions: Why This + Reserve + Nash Veto */}
-      <div
-        style={{
-          marginTop: "10px",
-          paddingTop: "10px",
-          borderTop: "1px solid var(--stone-muted)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-          flexWrap: "wrap",
-        }}
+      {/* Calm, Breathable Editorial Card */}
+      <article
+        onClick={() => onSelect(spot)}
+        className={`group rounded-2xl bg-white p-4 sm:p-5 border transition-all duration-200 cursor-pointer ${
+          isSub
+            ? "border-[#1E4D3F] shadow-[0_6px_22px_rgba(30,77,63,0.1)]"
+            : "border-[#E6E1D6] hover:border-[#CFC6B4] shadow-[0_2px_10px_rgba(20,23,21,0.03)] hover:shadow-[0_10px_28px_rgba(20,23,21,0.07)]"
+        }`}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--alpine-moss)", fontWeight: 700 }}>
-          {isSub ? <Shield size={13} /> : <Sparkles size={13} color="#E85D2A" />}
-          <span>{isSub ? "Rain-Safe Substitute" : "Why this? Tap for FairNet breakdown"}</span>
+        <div className="flex gap-4 items-start">
+          {/* Crisp Photo Thumbnail */}
+          <div className="relative w-22 h-22 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 bg-[#EFECE4]">
+            <img
+              src={imageUrl}
+              alt={spot.name}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <span
+              className={`font-mono-num absolute top-2 left-2 w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shadow ${
+                isSub ? "bg-[#1E4D3F]" : "bg-[#141715]/85 backdrop-blur-sm"
+              }`}
+            >
+              {index + 1}
+            </span>
+          </div>
+
+          {/* Primary Content Column */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#D94E28] truncate">
+                {spot.scheduled_slot ? spot.scheduled_slot.split("(")[0].trim() : `Stop ${index + 1}`}
+                {isSub ? " • Rain Safe" : ""}
+              </span>
+              <span className="font-mono-num inline-flex items-center gap-1 text-xs font-semibold text-[#141715] shrink-0">
+                <Star className="w-3.5 h-3.5 fill-[#B8863B] text-[#B8863B]" />
+                {spot.rating}
+              </span>
+            </div>
+
+            <h4 className="font-display text-base sm:text-lg font-semibold text-[#141715] mt-1 leading-snug truncate">
+              {spot.name.split("(")[0].trim()}
+            </h4>
+
+            {/* Clean 3-Item Metadata Row (Zero Badge Soup!) */}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#5A605C]">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#F8F6F1] border border-[#E6E1D6] font-medium text-[#141715]">
+                {spot.category}
+              </span>
+              <span className="font-mono-num font-semibold text-[#141715]">
+                {spot.estimated_cost_bdt > 0 ? formatCurrency(spot.estimated_cost_bdt, currency) : "Free"}
+              </span>
+              {spot.indoor_outdoor === "Indoor" ? (
+                <span className="inline-flex items-center gap-1 text-[#1E4D3F] font-medium">
+                  <Home className="w-3 h-3" /> Indoor
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[#1E4D3F] font-medium">
+                  <Leaf className="w-3 h-3" /> Eco {spot.sustainability_score || 85}
+                </span>
+              )}
+            </div>
+
+            {/* Clean Action Bar + Progressive Disclosure Toggle */}
+            <div className="mt-3.5 pt-3 border-t border-[#F1EDE5] flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowWhy((s) => !s);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5A605C] hover:text-[#141715] bg-transparent border-none p-0 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#1E4D3F]" />
+                <span>Why FairNet picked this</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${showWhy ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              <div className="flex items-center gap-2">
+                {onBook && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBook(spot);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#E8F2EE] hover:bg-[#1E4D3F] text-[#1E4D3F] hover:text-white px-3 py-1.5 text-[11px] font-semibold border-none transition cursor-pointer"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5" />
+                    <span>Reserve</span>
+                  </button>
+                )}
+
+                {onVeto && (
+                  <button
+                    type="button"
+                    disabled={userVetoTokens <= 0}
+                    title={
+                      userVetoTokens > 0
+                        ? `Use ${currentMemberName}'s Nash Veto token`
+                        : "Veto token already used"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onVeto(spot);
+                    }}
+                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold border transition ${
+                      userVetoTokens > 0
+                        ? "bg-white hover:bg-[#FDF0EB] text-[#141715] hover:text-[#D94E28] border-[#E6E1D6] hover:border-[#F2C3B2] cursor-pointer"
+                        : "bg-[#F8F6F1] text-[#9BA09D] border-[#ECE7DC] cursor-not-allowed"
+                    }`}
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Veto ({userVetoTokens})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          {onBook && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBook(spot);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "var(--alpine-moss)",
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: "8px",
-                padding: "5px 10px",
-                fontSize: "11px",
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
+        {/* Progressive Disclosure: FairNet Explanation Drawer */}
+        <AnimatePresence>
+          {showWhy && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="overflow-hidden"
             >
-              <CalendarCheck size={12} />
-              <span>Reserve</span>
-            </button>
+              <div className="mt-3.5 pt-3 border-t border-dashed border-[#E6E1D6] text-xs text-[#5A605C] space-y-2.5">
+                <p className="m-0 leading-relaxed text-[#262C29]">
+                  {why.narrative || spot.description}
+                </p>
+                {Object.keys(memberBreakdown).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(memberBreakdown).map(([name, score]) => (
+                      <span
+                        key={name}
+                        className="font-mono-num text-[11px] bg-[#F8F6F1] border border-[#E6E1D6] px-2.5 py-0.5 rounded-full text-[#141715]"
+                      >
+                        {name}: <strong>{score}%</strong>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
           )}
-
-          {onVeto && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onVeto(spot);
-              }}
-              disabled={userVetoTokens <= 0}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                background: userVetoTokens > 0 ? "var(--safety-orange-soft)" : "var(--stone-muted)",
-                color: userVetoTokens > 0 ? "var(--safety-orange-hover)" : "var(--granite-600)",
-                border: `1px solid ${userVetoTokens > 0 ? "#F7C6B3" : "var(--stone-border)"}`,
-                borderRadius: "8px",
-                padding: "5px 10px",
-                fontSize: "11px",
-                fontWeight: 800,
-                cursor: userVetoTokens > 0 ? "pointer" : "not-allowed",
-              }}
-              title={userVetoTokens > 0 ? `Use ${currentMemberName}'s Veto Token` : "No Veto Tokens Left"}
-            >
-              <ShieldAlert size={12} />
-              <span>Nash Veto ({userVetoTokens})</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </TiltCard>
+        </AnimatePresence>
+      </article>
+    </div>
   );
 }

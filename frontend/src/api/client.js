@@ -74,7 +74,7 @@ export async function probeBackendConnection(overrideUrl) {
   const base = overrideUrl !== undefined ? overrideUrl.replace(/\/+$/, "") : getBackendUrl();
   const t0 = performance.now();
   try {
-    const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(2500) });
+    const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(4500) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const ct = (res.headers.get("content-type") || "").toLowerCase();
     if (!ct.includes("application/json")) throw new Error("Static host");

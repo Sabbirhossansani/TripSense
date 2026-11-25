@@ -1,96 +1,23 @@
 import React from "react";
-import { MessageCircle, MapPin, Bot } from "lucide-react";
+import { motion } from "framer-motion";
+import { Bot } from "lucide-react";
 
-export default function FloatingQuickActions({
-  city = "Chittagong",
-  roomCode = "CTG-882",
-  onOpenCopilot,
-}) {
-  const whatsappText = encodeURIComponent(
-    `Join our ${city} eco-smart squad trip on TripSense! Room Code: ${roomCode} — Zero-hallucination itinerary & fair group planning.`
-  );
-
+export default function FloatingQuickActions({ onOpenCopilot }) {
   return (
-    <div
-      className="desktop-only-fab"
-      style={{
-        position: "fixed",
-        bottom: "76px",
-        right: "18px",
-        zIndex: 92,
-        flexDirection: "column",
-        gap: "8px",
-        alignItems: "flex-end",
-      }}
+    <motion.button
+      type="button"
+      onClick={onOpenCopilot}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.96 }}
+      aria-label="Open TripSense AI Concierge"
+      className="desktop-only-fab fixed bottom-6 right-6 z-40 inline-flex flex-nowrap items-center gap-2.5 whitespace-nowrap rounded-full bg-[#141715] hover:bg-[#232926] text-white pl-4 pr-5 py-3 text-xs font-semibold shadow-[0_14px_34px_rgba(20,23,21,0.28)] border border-white/15 cursor-pointer"
     >
-      <a
-        href={`https://wa.me/?text=${whatsappText}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{
-          background: "#25463B",
-          color: "#FFFFFF",
-          padding: "9px 14px",
-          borderRadius: "999px",
-          fontSize: "11px",
-          fontWeight: 800,
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          boxShadow: "0 8px 20px rgba(26, 29, 28, 0.2)",
-          border: "1px solid rgba(255,255,255,0.16)",
-        }}
-      >
-        <MessageCircle size={14} />
-        <span>WhatsApp Squad</span>
-      </a>
-
-      <a
-        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(city + " tourist attractions")}`}
-        target="_blank"
-        rel="noreferrer"
-        style={{
-          background: "#FFFFFF",
-          color: "#1A1D1C",
-          padding: "9px 14px",
-          borderRadius: "999px",
-          fontSize: "11px",
-          fontWeight: 800,
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "6px",
-          boxShadow: "0 8px 20px rgba(26, 29, 28, 0.14)",
-          border: "1px solid var(--stone-border)",
-        }}
-      >
-        <MapPin size={14} color="#E85D2A" />
-        <span>Google Maps</span>
-      </a>
-
-      <button
-        type="button"
-        onClick={onOpenCopilot}
-        className="liquid-btn"
-        style={{
-          background: "var(--safety-orange)",
-          color: "#FFFFFF",
-          padding: "11px 16px",
-          borderRadius: "999px",
-          fontSize: "12px",
-          fontWeight: 800,
-          border: "none",
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "7px",
-          boxShadow: "0 12px 26px rgba(232, 93, 42, 0.35)",
-        }}
-      >
-        <Bot size={16} />
-        <span>Ask AI Copilot</span>
-      </button>
-    </div>
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D94E28] opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#D94E28]" />
+      </span>
+      <Bot className="w-4 h-4 text-[#F4A586]" />
+      <span>AI Concierge</span>
+    </motion.button>
   );
 }

@@ -1,158 +1,67 @@
-import React, { useState } from "react";
-import { Compass, Shield, X } from "lucide-react";
+import React from "react";
+import { Compass, Leaf, ShieldCheck, ArrowUpRight } from "lucide-react";
 
 export default function EditorialFooter({ onOpenMlLab }) {
-  const [legalModal, setLegalModal] = useState(null);
-
   return (
-    <>
-      <footer
-        style={{
-          background: "#1A1D1C",
-          color: "#E2DDD3",
-          padding: "36px 24px 90px 24px",
-          marginTop: "32px",
-          borderTop: "1px solid #2A2F2D",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1320px",
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "24px",
-            alignItems: "start",
-          }}
-        >
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-              <div
-                style={{
-                  width: "34px",
-                  height: "34px",
-                  borderRadius: "10px",
-                  background: "var(--safety-orange)",
-                  color: "#FFFFFF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Compass size={19} />
-              </div>
-              <span className="font-display" style={{ fontSize: "20px", fontWeight: 900, color: "#FAF9F6" }}>
-                TripSense
+    <footer className="mt-auto border-t border-[#E6E1D6] bg-[#EFECE4]/60 text-[#141715]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-10 border-b border-[#DFD8CA]">
+          <div className="md:col-span-5">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-7 h-7 rounded-lg bg-[#D94E28] text-white flex items-center justify-center">
+                <Compass className="w-4 h-4" />
               </span>
+              <span className="font-display text-lg font-bold tracking-tight">TripSense</span>
             </div>
-            <p style={{ fontSize: "12px", color: "#9AA39F", lineHeight: 1.6, margin: 0 }}>
-              Explainable, Group-Aware & Sustainable Travel Companion powered by TripSense-FairNet, SigLIP Active Learning, and Neuro-Symbolic RAG.
+            <p className="text-xs text-[#5A605C] leading-relaxed max-w-sm m-0">
+              Neural group travel consensus, active Bayesian cold-start elicitation, and carbon-aware local SME discovery. Built with CLIP ViT-B/32, PyTorch FairNet, and Neuro-Symbolic RAG.
             </p>
           </div>
 
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: 800, color: "#FF9F7A", letterSpacing: "0.7px", marginBottom: "10px" }}>
-              RESEARCH & ARCHITECTURE
+          <div className="md:col-span-4 space-y-2 text-xs">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5A605C] mb-2">
+              Research &amp; Architecture
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px" }}>
-              <button
-                type="button"
-                onClick={onOpenMlLab}
-                style={{ background: "none", border: "none", color: "#E2DDD3", textAlign: "left", padding: 0, cursor: "pointer", fontWeight: 600 }}
-              >
-                Q1 Benchmark Results & SHAP Lab
-              </button>
-              <span style={{ color: "#9AA39F" }}>Daffodil International University (CSE)</span>
-              <span style={{ color: "#9AA39F" }}>Dataset: Massive-STEPS & TravelPlanner</span>
+            <button
+              type="button"
+              onClick={onOpenMlLab}
+              className="flex items-center gap-1 text-[#141715] hover:text-[#D94E28] font-semibold bg-transparent border-none p-0 cursor-pointer"
+            >
+              <span>Inspect Q1 Benchmark Lab</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex items-center gap-1.5 text-[#5A605C]">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#1E4D3F]" />
+              <span>Zero-Hallucination Symbolic Verifier</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[#5A605C]">
+              <Leaf className="w-3.5 h-3.5 text-[#1E4D3F]" />
+              <span>68 Verified Community &amp; Global POIs</span>
             </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: 800, color: "#9FE0C4", letterSpacing: "0.7px", marginBottom: "10px" }}>
-              GOVERNANCE & LEGAL
+          <div className="md:col-span-3 space-y-2 text-xs">
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#5A605C] mb-2">
+              Open Source
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", fontSize: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setLegalModal("Privacy Policy (GDPR & Local Cache)")}
-                style={{ background: "none", border: "none", color: "#E2DDD3", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-              >
-                Privacy Policy
-              </button>
-              <button
-                type="button"
-                onClick={() => setLegalModal("Terms of Service")}
-                style={{ background: "none", border: "none", color: "#E2DDD3", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-              >
-                Terms of Service
-              </button>
-              <button
-                type="button"
-                onClick={() => setLegalModal("Sustainability & Local SME Charter")}
-                style={{ background: "none", border: "none", color: "#E2DDD3", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-              >
-                Sustainability Charter
-              </button>
-              <button
-                type="button"
-                onClick={() => setLegalModal("Impressum & Academic Attribution")}
-                style={{ background: "none", border: "none", color: "#E2DDD3", padding: 0, cursor: "pointer", textDecoration: "underline" }}
-              >
-                Impressum
-              </button>
-            </div>
-            <div style={{ marginTop: "14px", fontSize: "11px", color: "#7C8581" }}>
-              © 2026 Sabbirhossansani • TripSense Sustainable Travel Platform
-            </div>
+            <a
+              href="https://github.com/Sabbirhossansani/TripSense"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-[#141715] hover:text-[#D94E28] font-semibold no-underline"
+            >
+              <span>GitHub Repository</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </a>
+            <div className="text-[#5A605C]">MIT Research Prototype</div>
           </div>
         </div>
-      </footer>
 
-      {legalModal && (
-        <div
-          onClick={() => setLegalModal(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100005,
-            background: "rgba(26, 29, 28, 0.72)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#FAF9F6",
-              borderRadius: "20px",
-              padding: "24px",
-              maxWidth: "460px",
-              width: "100%",
-              border: "1px solid var(--stone-border)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "15px" }}>
-                <Shield size={16} color="#25463B" />
-                <span>{legalModal}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLegalModal(null)}
-                style={{ background: "none", border: "none", cursor: "pointer" }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p style={{ fontSize: "13px", lineHeight: 1.6, color: "var(--granite-600)", margin: 0 }}>
-              TripSense enforces strict on-device itinerary caching, zero third-party ad tracking, and transparent partner revenue attribution (80–98% directly retained by verified local SME hosts). All AI Copilot responses pass deterministic symbolic fact-checking prior to display.
-            </p>
-          </div>
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#5A605C]">
+          <span>© 2026 TripSense • Sabbirhossansani</span>
+          <span className="font-mono-num">FairNet v3.5 • Warm Alabaster Editorial System</span>
         </div>
-      )}
-    </>
+      </div>
+    </footer>
   );
 }

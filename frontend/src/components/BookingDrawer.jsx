@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { X, Calendar, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
+import { Drawer } from "vaul";
+import { toast } from "sonner";
+import { X, CalendarCheck, Leaf, Users, CheckCircle2, Sparkles } from "lucide-react";
 import { reserveBooking, formatCurrency } from "../api/client";
 
 export default function BookingDrawer({
@@ -11,7 +13,6 @@ export default function BookingDrawer({
   defaultLeadName = "Rahat",
   currency = "BDT",
   availableEcoPoints = 180,
-  onBookingConfirmed,
 }) {
   const [step, setStep] = useState(1);
   const [date, setDate] = useState(defaultDate);
@@ -20,420 +21,280 @@ export default function BookingDrawer({
   const [leadName, setLeadName] = useState(defaultLeadName);
   const [leadContact, setLeadContact] = useState("+880 1711-000000");
   const [ecoPledge, setEcoPledge] = useState(true);
-  const [redeemPoints, setRedeemPoints] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [voucher, setVoucher] = useState(null);
+  const [useEcoPoints, setUseEcoPoints] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
-  if (!isOpen || !spot) return null;
+  if (!spot) return null;
 
-  const baseUnit = Math.max(spot.estimated_cost_bdt || 0, 150);
-  const baseTotal = baseUnit * groupSize;
-  const discPct = groupSize >= 4 ? Math.max(spot.group_discount_pct || 10, 15) : groupSize >= 3 ? Math.max(spot.group_discount_pct || 10, 10) : 0;
-  const groupDiscountBdt = Math.round(baseTotal * (discPct / 100));
-  const ecoDiscountBdt = redeemPoints ? Math.min(Math.round(baseTotal * 0.25), Math.round(availableEcoPoints * 0.5)) : 0;
-  const finalTotal = Math.max(0, baseTotal - groupDiscountBdt - ecoDiscountBdt);
+  const unitCost = Number(spot.estimated_cost_bdt || 150);
+  const baseTotal = unitCost * groupSize;
+  const groupDiscountPct = groupSize >= 4 ? 15 : 10;
+  const groupDiscountBdt = Math.round((baseTotal * groupDiscountPct) / 100);
+  const ecoDiscountBdt = useEcoPoints ? Math.min(Math.max(0, baseTotal - groupDiscountBdt), Math.floor(availableEcoPoints * 0.5)) : 0;
+  const finalPayable = Math.max(0, baseTotal - groupDiscountBdt - ecoDiscountBdt);
+
+  const handleClose = () => {
+    setStep(1);
+    setConfirmation(null);
+    onClose();
+  };
 
   const handleConfirm = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
       const res = await reserveBooking({
         spot_id: spot.id,
         spot_name: spot.name,
-        city: spot.city,
+        city: spot.city || "Chittagong",
         date,
         time_slot: timeSlot,
-        group_size: groupSize,
+        group_size: Number(groupSize),
         lead_name: leadName,
         lead_contact: leadContact,
         eco_pledge: ecoPledge,
-        redeem_eco_points: redeemPoints ? availableEcoPoints : 0,
-        unit_cost_bdt: baseUnit,
+        redeem_eco_points: useEcoPoints ? availableEcoPoints : 0,
+        unit_cost_bdt: unitCost,
       });
-      setVoucher(res);
+      setConfirmation(res);
       setStep(3);
-      if (onBookingConfirmed) onBookingConfirmed(res);
+      toast.success(`Voucher ${res.voucher_code} issued for ${spot.name.split("(")[0].trim()}!`);
     } catch {
-      const localVoucher = {
-        voucher_code: `TS-BD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-        status: "CONFIRMED",
-        spot_name: spot.name,
-        partner_name: spot.local_partner_name || "Local Heritage Partner",
-        date,
-        time_slot: timeSlot,
-        group_size: groupSize,
-        final_total_bdt: finalTotal,
-        group_discount_pct: discPct,
-        eco_points_earned: (spot.eco_points_reward || 60) + (ecoPledge ? 40 : 0),
-        local_sme_revenue_bdt: Math.round(finalTotal * ((spot.local_revenue_share_pct || 85) / 100)),
-      };
-      setVoucher(localVoucher);
-      setStep(3);
+      toast.error("Could not complete reservation.");
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100001,
-        background: "rgba(26, 29, 28, 0.58)",
-        backdropFilter: "blur(6px)",
-        display: "flex",
-        justifyContent: "flex-end",
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: "440px",
-          height: "100%",
-          background: "#FAF9F6",
-          borderLeft: "1px solid var(--stone-border)",
-          display: "flex",
-          flexDirection: "column",
-          animation: "slideRightIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
-          boxShadow: "-12px 0 40px rgba(26, 29, 28, 0.18)",
-        }}
-      >
-        {/* Drawer Header */}
-        <div
-          style={{
-            padding: "20px 22px",
-            background: "#1A1D1C",
-            color: "#F6F4EF",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: "10px", fontWeight: 800, color: "#FF9F7A", letterSpacing: "0.8px" }}>
-              LOCAL PARTNER RESERVATION
-            </div>
-            <h3 className="font-display" style={{ fontSize: "18px", fontWeight: 800, margin: "4px 0 0 0" }}>
-              {spot.name.split("(")[0].trim()}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.12)",
-              border: "none",
-              borderRadius: "50%",
-              width: "34px",
-              height: "34px",
-              color: "#FFFFFF",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
+    <Drawer.Root open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 bg-[#141715]/60 backdrop-blur-sm z-[100000]" />
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-[100001] mx-auto max-w-xl rounded-t-[28px] bg-[#F8F6F1] border border-[#E6E1D6] shadow-2xl flex flex-col max-h-[90vh] focus:outline-none">
+          <div className="mx-auto mt-3 mb-1 h-1.5 w-12 rounded-full bg-[#D5CEBF]" />
 
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "22px" }}>
-          {/* Stepper Indicator */}
-          <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                style={{
-                  flex: 1,
-                  height: "4px",
-                  borderRadius: "999px",
-                  background: step >= n ? "var(--safety-orange)" : "var(--stone-border)",
-                  transition: "background 0.25s ease",
-                }}
-              />
-            ))}
-          </div>
-
-          {step === 1 && (
+          {/* Header */}
+          <div className="px-6 py-4 flex items-center justify-between border-b border-[#E6E1D6]">
             <div>
-              <h4 style={{ fontSize: "15px", fontWeight: 800, margin: "0 0 14px 0" }}>
-                Step 1: Choose Date, Slot & Squad Count
-              </h4>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1E4D3F]">
+                Verified Local Partner Pass
+              </span>
+              <Drawer.Title className="font-display text-xl font-semibold text-[#141715] mt-0.5">
+                {spot.name.split("(")[0].trim()}
+              </Drawer.Title>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full bg-white border border-[#E6E1D6] flex items-center justify-center text-[#141715] cursor-pointer hover:bg-[#EFECE4]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--granite-600)", marginBottom: "6px" }}>
-                  Visit Date
-                </label>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#FFFFFF", border: "1px solid var(--stone-border)", borderRadius: "12px", padding: "10px 12px" }}>
-                  <Calendar size={15} color="#E85D2A" />
+          {/* Body */}
+          <div className="p-6 overflow-y-auto space-y-5">
+            {step === 1 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5A605C] mb-1.5">Date</label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full rounded-xl bg-white border border-[#E6E1D6] px-3.5 py-2.5 text-sm text-[#141715]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#5A605C] mb-1.5">
+                      Squad Count ({groupSize} travelers)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setGroupSize(Math.max(1, groupSize - 1))}
+                        className="w-10 h-10 rounded-xl bg-white border border-[#E6E1D6] text-base font-bold cursor-pointer"
+                      >
+                        −
+                      </button>
+                      <div className="flex-1 text-center font-mono-num text-sm font-bold bg-white border border-[#E6E1D6] py-2.5 rounded-xl">
+                        <Users className="w-3.5 h-3.5 inline mr-1.5 text-[#1E4D3F]" />
+                        {groupSize}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setGroupSize(Math.min(15, groupSize + 1))}
+                        className="w-10 h-10 rounded-xl bg-white border border-[#E6E1D6] text-base font-bold cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#5A605C] mb-1.5">Time Window</label>
+                  <select
+                    value={timeSlot}
+                    onChange={(e) => setTimeSlot(e.target.value)}
+                    className="w-full rounded-xl bg-white border border-[#E6E1D6] px-3.5 py-2.5 text-sm text-[#141715]"
+                  >
+                    <option>Morning (09:00 AM - 12:00 PM)</option>
+                    <option>Afternoon (01:30 PM - 05:00 PM)</option>
+                    <option>Evening (06:00 PM - 09:00 PM)</option>
+                  </select>
+                </div>
+
+                <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#E8F2EE] border border-[#C6DED4] cursor-pointer">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-[#1E4D3F]">
+                    <Sparkles className="w-4 h-4" />
+                    Redeem {availableEcoPoints} Eco-Points (-{formatCurrency(Math.floor(availableEcoPoints * 0.5), currency)})
+                  </span>
                   <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    style={{ border: "none", outline: "none", flex: 1, fontSize: "13px", fontWeight: 600 }}
+                    type="checkbox"
+                    checked={useEcoPoints}
+                    onChange={(e) => setUseEcoPoints(e.target.checked)}
+                    className="w-4 h-4 accent-[#1E4D3F]"
                   />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--granite-600)", marginBottom: "6px" }}>
-                  Preferred Slot
                 </label>
-                <select
-                  value={timeSlot}
-                  onChange={(e) => setTimeSlot(e.target.value)}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "12px", border: "1px solid var(--stone-border)", background: "#FFFFFF", fontSize: "13px", fontWeight: 600 }}
-                >
-                  <option>Morning (09:00 AM - 12:00 PM)</option>
-                  <option>Afternoon (01:30 PM - 05:00 PM)</option>
-                  <option>Evening (06:00 PM - 08:30 PM)</option>
-                </select>
-              </div>
 
-              <div style={{ marginBottom: "18px" }}>
-                <label style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 700, color: "var(--granite-600)", marginBottom: "6px" }}>
-                  <span>Squad Size (Group Discount Unlock)</span>
-                  <span className="font-mono-num" style={{ color: "var(--safety-orange)" }}>{groupSize} Members</span>
-                </label>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  value={groupSize}
-                  onChange={(e) => setGroupSize(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "#E85D2A" }}
-                />
-              </div>
-
-              {/* Price & Discount Breakdown */}
-              <div style={{ background: "#FFFFFF", border: "1px solid var(--stone-border)", borderRadius: "16px", padding: "16px", marginBottom: "18px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                  <span style={{ color: "var(--granite-600)" }}>Guided Entry / Experience ({groupSize}×)</span>
-                  <span className="font-mono-num" style={{ fontWeight: 700 }}>{formatCurrency(baseTotal, currency)}</span>
-                </div>
-                {discPct > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--alpine-moss)", fontWeight: 700, marginBottom: "6px" }}>
-                    <span>Squad Tier Discount ({discPct}%)</span>
+                <div className="rounded-2xl bg-white border border-[#E6E1D6] p-4 space-y-2 text-xs">
+                  <div className="flex justify-between text-[#5A605C]">
+                    <span>Squad subtotal ({groupSize} × {formatCurrency(unitCost, currency)})</span>
+                    <span className="font-mono-num">{formatCurrency(baseTotal, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-[#1E4D3F] font-semibold">
+                    <span>Squad Discount ({groupDiscountPct}%)</span>
                     <span className="font-mono-num">-{formatCurrency(groupDiscountBdt, currency)}</span>
                   </div>
-                )}
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", margin: "10px 0", cursor: "pointer", color: "var(--alpine-moss)", fontWeight: 700 }}>
-                  <input type="checkbox" checked={redeemPoints} onChange={(e) => setRedeemPoints(e.target.checked)} />
-                  <span>Redeem {availableEcoPoints} Eco-Points (-{formatCurrency(Math.round(availableEcoPoints * 0.5), currency)})</span>
-                </label>
-                <div style={{ borderTop: "1px dashed var(--stone-border)", paddingTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 800 }}>Total Group Payable</span>
-                  <span className="font-mono-num" style={{ fontSize: "20px", fontWeight: 800, color: "var(--safety-orange)" }}>
-                    {formatCurrency(finalTotal, currency)}
-                  </span>
+                  {ecoDiscountBdt > 0 && (
+                    <div className="flex justify-between text-[#D94E28] font-semibold">
+                      <span>Eco-Points Credit</span>
+                      <span className="font-mono-num">-{formatCurrency(ecoDiscountBdt, currency)}</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-[#EFECE4] flex justify-between text-sm font-bold text-[#141715]">
+                    <span>Total Group Payable</span>
+                    <span className="font-mono-num">{formatCurrency(finalPayable, currency)}</span>
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="liquid-btn"
-                style={{
-                  width: "100%",
-                  background: "var(--safety-orange)",
-                  color: "#FFFFFF",
-                  border: "none",
-                  borderRadius: "14px",
-                  padding: "13px",
-                  fontSize: "14px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                }}
-              >
-                <span>Continue to Traveler Details</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <form onSubmit={handleConfirm}>
-              <h4 style={{ fontSize: "15px", fontWeight: 800, margin: "0 0 14px 0" }}>
-                Step 2: Lead Traveler & Eco-Pledge
-              </h4>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--granite-600)", marginBottom: "6px" }}>
-                  Lead Traveler Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={leadName}
-                  onChange={(e) => setLeadName(e.target.value)}
-                  style={{ width: "100%", padding: "11px 12px", borderRadius: "12px", border: "1px solid var(--stone-border)", background: "#FFFFFF", fontSize: "13px", fontWeight: 600 }}
-                />
-              </div>
-
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--granite-600)", marginBottom: "6px" }}>
-                  Mobile / WhatsApp Contact
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={leadContact}
-                  onChange={(e) => setLeadContact(e.target.value)}
-                  style={{ width: "100%", padding: "11px 12px", borderRadius: "12px", border: "1px solid var(--stone-border)", background: "#FFFFFF", fontSize: "13px", fontWeight: 600 }}
-                />
-              </div>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "10px",
-                  background: "var(--alpine-moss-soft)",
-                  border: "1px solid #C5D9CE",
-                  borderRadius: "14px",
-                  padding: "12px",
-                  marginBottom: "18px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={ecoPledge}
-                  onChange={(e) => setEcoPledge(e.target.checked)}
-                  style={{ marginTop: "3px" }}
-                />
-                <div style={{ fontSize: "12px", color: "var(--alpine-moss)", lineHeight: 1.45 }}>
-                  <strong>Zero-Plastic Eco Pledge (+40 Bonus Eco-Points):</strong> Our group commits to reusable water bottles and supporting {spot.local_partner_name || "local community hosts"}.
-                </div>
-              </label>
-
-              <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
-                  style={{
-                    flex: 1,
-                    background: "#FFFFFF",
-                    border: "1px solid var(--stone-border)",
-                    borderRadius: "14px",
-                    padding: "12px",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
+                  onClick={() => setStep(2)}
+                  className="w-full rounded-full bg-[#141715] hover:bg-[#262C29] text-white py-3 text-sm font-semibold border-none cursor-pointer transition"
                 >
-                  Back
+                  Continue to Traveler Details
                 </button>
+              </>
+            )}
+
+            {step === 2 && (
+              <form onSubmit={handleConfirm} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#5A605C] mb-1.5">Lead Traveler Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    className="w-full rounded-xl bg-white border border-[#E6E1D6] px-3.5 py-2.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#5A605C] mb-1.5">Phone / WhatsApp</label>
+                  <input
+                    required
+                    type="text"
+                    value={leadContact}
+                    onChange={(e) => setLeadContact(e.target.value)}
+                    className="w-full rounded-xl bg-white border border-[#E6E1D6] px-3.5 py-2.5 text-sm"
+                  />
+                </div>
+                <label className="flex items-center gap-2.5 text-xs font-medium text-[#1E4D3F] bg-[#E8F2EE] p-3.5 rounded-2xl cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ecoPledge}
+                    onChange={(e) => setEcoPledge(e.target.checked)}
+                    className="w-4 h-4 accent-[#1E4D3F]"
+                  />
+                  <Leaf className="w-4 h-4 shrink-0" />
+                  <span>Zero-Plastic Eco Pledge (+40 Bonus Eco-Points)</span>
+                </label>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="px-5 py-3 rounded-full bg-white border border-[#E6E1D6] text-xs font-semibold text-[#141715] cursor-pointer"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 rounded-full bg-[#D94E28] hover:bg-[#BF401E] text-white py-3 text-sm font-semibold border-none cursor-pointer transition inline-flex items-center justify-center gap-2"
+                  >
+                    <CalendarCheck className="w-4 h-4" />
+                    <span>{submitting ? "Issuing Voucher..." : `Confirm (${formatCurrency(finalPayable, currency)})`}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {step === 3 && confirmation && (
+              <div className="text-center space-y-4 py-2">
+                <div className="w-12 h-12 rounded-full bg-[#E8F2EE] text-[#1E4D3F] inline-flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-display text-2xl font-semibold text-[#141715] m-0">
+                    Booking Confirmed
+                  </h3>
+                  <p className="text-xs text-[#5A605C] mt-1">
+                    Host: {confirmation.partner_name}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#141715] text-white p-5 space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-white/60">Digital Pass Code</div>
+                  <div className="font-mono-num text-2xl font-bold text-[#F4A586]">
+                    {confirmation.voucher_code}
+                  </div>
+                  <div className="text-xs text-white/80">
+                    {confirmation.date} • {confirmation.group_size} Travelers
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl bg-white border border-[#E6E1D6] p-3">
+                    <div className="text-[#5A605C]">Paid Total</div>
+                    <div className="font-mono-num font-bold text-sm text-[#141715] mt-0.5">
+                      {formatCurrency(confirmation.final_total_bdt, currency)}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-[#E8F2EE] border border-[#C6DED4] p-3">
+                    <div className="text-[#1E4D3F]">Local SME Impact</div>
+                    <div className="font-mono-num font-bold text-sm text-[#1E4D3F] mt-0.5">
+                      {formatCurrency(confirmation.local_sme_revenue_bdt, currency)}
+                    </div>
+                  </div>
+                </div>
+
                 <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="liquid-btn"
-                  style={{
-                    flex: 2,
-                    background: "var(--alpine-moss)",
-                    color: "#FFFFFF",
-                    border: "none",
-                    borderRadius: "14px",
-                    padding: "12px",
-                    fontSize: "14px",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
-                  }}
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full rounded-full bg-[#141715] text-white py-3 text-sm font-semibold border-none cursor-pointer"
                 >
-                  <Sparkles size={15} />
-                  <span>{isSubmitting ? "Issuing Voucher..." : `Confirm (${formatCurrency(finalTotal, currency)})`}</span>
+                  Done &amp; Return to Itinerary
                 </button>
               </div>
-            </form>
-          )}
-
-          {step === 3 && voucher && (
-            <div style={{ textAlign: "center" }}>
-              <div
-                style={{
-                  width: "64px",
-                  height: "64px",
-                  borderRadius: "50%",
-                  background: "var(--alpine-moss-soft)",
-                  color: "var(--alpine-moss)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: "14px",
-                }}
-              >
-                <CheckCircle2 size={36} />
-              </div>
-
-              <h4 className="font-display" style={{ fontSize: "22px", fontWeight: 800, margin: "0 0 6px 0" }}>
-                Reservation Confirmed!
-              </h4>
-              <p style={{ fontSize: "12px", color: "var(--granite-600)", margin: "0 0 18px 0" }}>
-                Hosted by <strong>{voucher.partner_name}</strong>
-              </p>
-
-              <div
-                style={{
-                  background: "#FFFFFF",
-                  border: "2px dashed var(--safety-orange)",
-                  borderRadius: "18px",
-                  padding: "18px",
-                  textAlign: "left",
-                  marginBottom: "18px",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--granite-600)" }}>VOUCHER CODE</span>
-                  <span className="font-mono-num" style={{ fontSize: "15px", fontWeight: 800, color: "var(--safety-orange)" }}>
-                    {voucher.voucher_code}
-                  </span>
-                </div>
-                <div style={{ fontSize: "12px", lineHeight: 1.7, color: "var(--granite-800)" }}>
-                  <div><strong>Date:</strong> {voucher.date} • {voucher.time_slot}</div>
-                  <div><strong>Squad:</strong> {voucher.group_size} Travelers ({voucher.group_discount_pct}% Group Discount)</div>
-                  <div><strong>Paid Total:</strong> {formatCurrency(voucher.final_total_bdt, currency)}</div>
-                  <div style={{ color: "var(--alpine-moss)", fontWeight: 700 }}>
-                    <strong>Direct Local SME Impact:</strong> {formatCurrency(voucher.local_sme_revenue_bdt, currency)} retained locally
-                  </div>
-                  <div style={{ color: "var(--safety-orange)", fontWeight: 700 }}>
-                    <strong>Earned:</strong> +{voucher.eco_points_earned} Eco-Points
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  width: "100%",
-                  background: "var(--granite-950)",
-                  color: "#FFFFFF",
-                  border: "none",
-                  borderRadius: "14px",
-                  padding: "13px",
-                  fontSize: "14px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                Done & Return to Itinerary
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+            )}
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }

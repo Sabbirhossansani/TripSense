@@ -27,10 +27,16 @@
 
 ---
 
-## Live Application Preview
+## Live Application Previews
 
+### 1. Full-Viewport Cinematic Editorial Hero & Conversational Prompt Bar
 <p align="center">
-  <img src="assets/preview-desktop.png" alt="TripSense 2026 Editorial UI — Live AI Mode, Group Fairness 97.56/100" width="100%" />
+  <img src="assets/preview-desktop.png" alt="TripSense Awwwards-Style Full-Viewport Cinematic Hero & Mindtrip Prompt Bar" width="100%" />
+</p>
+
+### 2. Clean Mindtrip-Style Split-Screen Itinerary & Sticky OpenStreetMap Workspace
+<p align="center">
+  <img src="assets/preview-planner.png" alt="TripSense Split-Screen Trip Planner with FairNet Consensus, Progressive Disclosure & Sticky Map" width="100%" />
 </p>
 
 ---

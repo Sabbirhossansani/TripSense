@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import Lenis from "lenis";
+import { Toaster, toast } from "sonner";
 import Navbar from "./components/Navbar";
+import ExploreLandingView from "./components/ExploreLandingView";
 import ItineraryTab from "./components/ItineraryTab";
 import LobbyTab from "./components/LobbyTab";
 import ExpenseSplitterTab from "./components/ExpenseSplitterTab";
@@ -17,7 +20,7 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import EditorialFooter from "./components/EditorialFooter";
 import FloatingQuickActions from "./components/FloatingQuickActions";
 import BackendConnectModal from "./components/BackendConnectModal";
-import { ScrollProgressRail } from "./components/MotionPrimitives";
+import { ScrollProgressRail } from "./components/ui/AnimatedPrimitives";
 import {
   fetchDestinations,
   generateGroupPlan,
@@ -33,15 +36,15 @@ import {
   loadUser,
   clearUser,
   saveVetoTokens,
-  loadVetoTokens
+  loadVetoTokens,
 } from "./api/client";
-import { Compass, Map, DollarSign, Users, Award, Bot } from "lucide-react";
+import { Compass, Map, DollarSign, Award, Bot } from "lucide-react";
 import "./App.css";
 
 const DEFAULT_MEMBERS = [
   { name: "Rahat", interests: ["Historical", "Culture"], budget_tier: "Budget" },
   { name: "Sadia", interests: ["Beach", "Nature"], budget_tier: "Mid-range" },
-  { name: "Fahim", interests: ["Adventure", "Food"], budget_tier: "Luxury" }
+  { name: "Fahim", interests: ["Adventure", "Food"], budget_tier: "Luxury" },
 ];
 
 const DEFAULT_EXPENSES = [
@@ -51,7 +54,7 @@ const DEFAULT_EXPENSES = [
     amountBDT: 1800,
     paidBy: "Rahat",
     splitWith: ["Rahat", "Sadia", "Fahim"],
-    date: "Aug 12"
+    date: "Aug 12",
   },
   {
     id: "exp-2",
@@ -59,15 +62,15 @@ const DEFAULT_EXPENSES = [
     amountBDT: 450,
     paidBy: "Sadia",
     splitWith: ["Rahat", "Sadia", "Fahim"],
-    date: "Aug 12"
-  }
+    date: "Aug 12",
+  },
 ];
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => loadUser() || null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Onboarding, Wizard, Copilot & Booking Drawer
+  // Onboarding, Wizard, Copilot & Drawers
   const [showTasteMatch, setShowTasteMatch] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [isSolverActive, setIsSolverActive] = useState(false);
@@ -82,14 +85,13 @@ export default function App() {
     fairnetLoaded: false,
   });
   const [bookingSpot, setBookingSpot] = useState(null);
-  const [vetoNotification, setVetoNotification] = useState(null);
 
-  // Localization (Language & Multi-Currency)
+  // Localization
   const [lang, setLang] = useState("EN");
   const [currency, setCurrency] = useState("BDT");
 
-  // Navigation & modals
-  const [activeTab, setActiveTab] = useState("itinerary");
+  // Navigation — defaults cleanly to the uncrowded Editorial Explore Homepage
+  const [activeTab, setActiveTab] = useState("home");
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [activeModalSpot, setActiveModalSpot] = useState(null);
 
@@ -104,22 +106,29 @@ export default function App() {
   const [days, setDays] = useState(3);
   const [roomCode, setRoomCode] = useState("CTG-882");
   const [availableDestinations, setAvailableDestinations] = useState([
-    "Chittagong", "Cox's Bazar", "Sylhet", "Bandarban", "Dhaka"
+    "Chittagong",
+    "Bandarban",
+    "Sylhet",
+    "Cox's Bazar",
+    "Dhaka",
+    "Tokyo",
+    "Paris",
   ]);
 
-  // Group Consensus Settings (Default: TripSense-FairNet Neural Model)
+  // Group Consensus Settings
   const [members, setMembers] = useState(DEFAULT_MEMBERS);
   const [consensusStrategy, setConsensusStrategy] = useState("fairnet");
   const [promoteHiddenGems, setPromoteHiddenGems] = useState(true);
   const [pace, setPace] = useState("Moderate");
 
-  const [vetoTokens, setVetoTokens] = useState(() => loadVetoTokens() || { Rahat: 1, Sadia: 1, Fahim: 1 });
+  const [vetoTokens, setVetoTokens] = useState(
+    () => loadVetoTokens() || { Rahat: 1, Sadia: 1, Fahim: 1 }
+  );
 
   // Plan Data
   const [plan, setPlan] = useState(null);
   const [originalPlan, setOriginalPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(null);
 
   // Weather Dynamic Replanning
   const [isRainSimulated, setIsRainSimulated] = useState(false);
@@ -133,6 +142,25 @@ export default function App() {
 
   const hasInitialized = useRef(false);
 
+  // Butter-smooth studio scrolling via Lenis
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.05,
+      smoothWheel: true,
+      touchMultiplier: 1.4,
+    });
+    let rafId = 0;
+    const raf = (time) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+    rafId = requestAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, []);
+
   useEffect(() => { saveVetoTokens(vetoTokens); }, [vetoTokens]);
   useEffect(() => { saveExpenses(expenses); }, [expenses]);
   useEffect(() => { saveSettledDebts(settledDebts); }, [settledDebts]);
@@ -142,7 +170,7 @@ export default function App() {
     setMembers(newMembers);
     setExpenses((prevExpenses) =>
       prevExpenses.map((exp) => {
-        const validPaidBy = newNames.includes(exp.paidBy) ? exp.paidBy : (newNames[0] || "");
+        const validPaidBy = newNames.includes(exp.paidBy) ? exp.paidBy : newNames[0] || "";
         const validSplit = (exp.splitWith || []).filter((name) => newNames.includes(name));
         return { ...exp, paidBy: validPaidBy, splitWith: validSplit.length > 0 ? validSplit : newNames };
       })
@@ -167,12 +195,12 @@ export default function App() {
     };
   }, []);
 
+  // Auto-probe cloud/laptop AI endpoint & seamlessly upgrade from Demo Mode when online
   useEffect(() => {
     let active = true;
     const check = () => {
       probeBackendConnection().then((status) => {
-        if (!active) return;
-        setConnectionState(status);
+        if (active) setConnectionState(status);
       });
     };
     check();
@@ -193,47 +221,70 @@ export default function App() {
     saveRoomState({ city, startDate, endDate, days, roomCode, members, consensusStrategy, promoteHiddenGems, pace });
   }, [city, startDate, endDate, days, roomCode, members, consensusStrategy, promoteHiddenGems, pace]);
 
-  const handleGeneratePlan = useCallback(async (overrides = {}) => {
-    const targetCity = overrides.city || city;
-    const targetDays = overrides.days || days;
-    const targetPace = overrides.pace || pace;
-    const targetMembers = overrides.members || members;
-    const targetStrategy = overrides.consensusStrategy || consensusStrategy;
-    const targetPromoteGems = overrides.promoteHiddenGems !== undefined ? overrides.promoteHiddenGems : promoteHiddenGems;
+  const handleGeneratePlan = useCallback(
+    async (overrides = {}, { switchTab = true, notify = false } = {}) => {
+      const targetCity = overrides.city || city;
+      const targetDays = overrides.days || days;
+      const targetPace = overrides.pace || pace;
+      const targetMembers = overrides.members || members;
+      const targetStrategy = overrides.consensusStrategy || consensusStrategy;
+      const targetPromoteGems =
+        overrides.promoteHiddenGems !== undefined ? overrides.promoteHiddenGems : promoteHiddenGems;
 
-    setIsLoading(true);
-    setErrorMsg(null);
-    setIsRerouted(false);
-    setIsRainSimulated(false);
-    setReplannedNotifications([]);
+      setIsLoading(true);
+      setIsRerouted(false);
+      setIsRainSimulated(false);
+      setReplannedNotifications([]);
 
-    try {
-      const payload = {
-        city: targetCity,
-        days: targetDays,
-        pace: targetPace,
-        members: targetMembers,
-        consensus_strategy: targetStrategy,
-        promote_hidden_gems: targetPromoteGems
-      };
-      const { data } = await generateGroupPlan(payload, isOfflineMode);
-      setPlan(data);
-      setOriginalPlan(data);
-      setActiveTab("itinerary");
-    } catch (err) {
-      setErrorMsg(err.message || "Failed to generate plan.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [city, days, pace, members, consensusStrategy, promoteHiddenGems, isOfflineMode]);
+      try {
+        const { data } = await generateGroupPlan(
+          {
+            city: targetCity,
+            days: targetDays,
+            pace: targetPace,
+            members: targetMembers,
+            consensus_strategy: targetStrategy,
+            promote_hidden_gems: targetPromoteGems,
+          },
+          isOfflineMode
+        );
+        setPlan(data);
+        setOriginalPlan(data);
+        if (switchTab) {
+          setActiveTab("itinerary");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        if (notify) {
+          toast.success(`FairNet built your ${targetDays}-day ${targetCity} itinerary.`);
+        }
+      } catch (err) {
+        toast.error(err.message || "Failed to generate itinerary.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [city, days, pace, members, consensusStrategy, promoteHiddenGems, isOfflineMode]
+  );
 
-  // Immediately load the flagship Chittagong FairNet showcase so editorial homepage is live on arrival
+  // Quietly pre-load initial Chittagong plan on mount while staying on the clean Home Hero
   useEffect(() => {
     if (!hasInitialized.current) {
       hasInitialized.current = true;
-      handleGeneratePlan();
+      handleGeneratePlan({}, { switchTab: false, notify: false });
     }
   }, [handleGeneratePlan]);
+
+  const handleHeroLaunch = ({ city: chosenCity, days: chosenDays, prompt }) => {
+    setCity(chosenCity);
+    setDays(chosenDays);
+    const prefix = chosenCity.substring(0, 3).toUpperCase();
+    setRoomCode(`${prefix}-${Math.floor(100 + Math.random() * 900)}`);
+    let nextPace = pace;
+    if (prompt && /(calm|slow|relax|quiet)/i.test(prompt)) nextPace = "Relaxed";
+    if (prompt && /(packed|fast|full)/i.test(prompt)) nextPace = "High Efficiency";
+    setPace(nextPace);
+    handleGeneratePlan({ city: chosenCity, days: chosenDays, pace: nextPace }, { switchTab: true, notify: true });
+  };
 
   const handleAutoRerouteWeather = async () => {
     if (!plan || !plan.daily_schedule || plan.daily_schedule.length === 0) return;
@@ -258,11 +309,11 @@ export default function App() {
             weather_condition: "Heavy Rain",
             members,
             current_spots: day.spots,
-            all_scheduled_spot_ids: otherDaysIds
+            all_scheduled_spot_ids: otherDaysIds,
           });
           if (result && result.updated_spots) {
             const daySpots = result.updated_spots;
-            totalSwapped += (result.swapped_spots_count || 0);
+            totalSwapped += result.swapped_spots_count || 0;
             if (result.notifications?.length) allNotifications.push(...result.notifications);
 
             day.spots.forEach((s) => usedSpotIds.delete(s.id));
@@ -281,14 +332,14 @@ export default function App() {
               spots: daySpots,
               daily_cost_bdt: Math.round(dayCostBdt * 10) / 10,
               daily_cost_usd: Math.round(dayCostUsd * 10) / 10,
-              daily_distance_km: Math.round(dayDistance * 100) / 100
+              daily_distance_km: Math.round(dayDistance * 100) / 100,
             });
             continue;
           }
         }
-        newTotalCostBdt += (day.daily_cost_bdt || 0);
-        newTotalCostUsd += (day.daily_cost_usd || 0);
-        newTotalDistance += (day.daily_distance_km || 0);
+        newTotalCostBdt += day.daily_cost_bdt || 0;
+        newTotalCostUsd += day.daily_cost_usd || 0;
+        newTotalDistance += day.daily_distance_km || 0;
         updatedDailySchedule.push(day);
       }
 
@@ -297,14 +348,15 @@ export default function App() {
         total_estimated_cost_bdt: Math.round(newTotalCostBdt * 10) / 10,
         total_estimated_cost_usd: Math.round(newTotalCostUsd * 10) / 10,
         total_distance_km: Math.round(newTotalDistance * 100) / 100,
-        daily_schedule: updatedDailySchedule
+        daily_schedule: updatedDailySchedule,
       });
       setIsRerouted(totalSwapped > 0);
       setReplannedNotifications(
         totalSwapped > 0 ? allNotifications : [`⚠️ No indoor substitutes available in ${city}.`]
       );
+      if (totalSwapped > 0) toast.success(`Swapped ${totalSwapped} outdoor stops for verified indoor shelters.`);
     } catch (err) {
-      alert("Failed to adapt itinerary for weather: " + err.message);
+      toast.error("Weather reroute failed: " + err.message);
     } finally {
       setIsReplanning(false);
     }
@@ -315,6 +367,7 @@ export default function App() {
       setPlan(JSON.parse(JSON.stringify(originalPlan)));
       setIsRerouted(false);
       setReplannedNotifications([]);
+      toast.info("Reverted to original clear-weather schedule.");
     }
   };
 
@@ -341,14 +394,10 @@ export default function App() {
         vetoed_by: memberName,
         members,
         current_spots: targetDay.spots,
-        all_scheduled_spot_ids: allTripSpotIds
+        all_scheduled_spot_ids: allTripSpotIds,
       });
 
       if (result) {
-        if (result.notification) {
-          setVetoNotification(result.notification);
-          setTimeout(() => setVetoNotification(null), 6000);
-        }
         if (result.success && result.updated_spots) {
           const updatedDailySchedule = [...plan.daily_schedule];
           const updatedSpots = result.updated_spots;
@@ -361,26 +410,31 @@ export default function App() {
             spots: updatedSpots,
             daily_cost_bdt: Math.round(dayCostBdt * 10) / 10,
             daily_cost_usd: Math.round(dayCostUsd * 10) / 10,
-            daily_distance_km: Math.round(dayDistance * 100) / 100
+            daily_distance_km: Math.round(dayDistance * 100) / 100,
           };
 
-          setPlan({
-            ...plan,
-            daily_schedule: updatedDailySchedule,
-            total_estimated_cost_bdt: Math.round(updatedDailySchedule.reduce((sum, d) => sum + (d.daily_cost_bdt || 0), 0) * 10) / 10,
-            total_estimated_cost_usd: Math.round(updatedDailySchedule.reduce((sum, d) => sum + (d.daily_cost_usd || 0), 0) * 10) / 10,
-            total_distance_km: Math.round(updatedDailySchedule.reduce((sum, d) => sum + (d.daily_distance_km || 0), 0) * 100) / 100
-          });
+          const totalCostBdt = updatedDailySchedule.reduce((acc, d) => acc + (d.daily_cost_bdt || 0), 0);
+          const totalCostUsd = updatedDailySchedule.reduce((acc, d) => acc + (d.daily_cost_usd || 0), 0);
+          const totalDist = updatedDailySchedule.reduce((acc, d) => acc + (d.daily_distance_km || 0), 0);
 
+          const nextPlan = {
+            ...plan,
+            total_estimated_cost_bdt: Math.round(totalCostBdt * 10) / 10,
+            total_estimated_cost_usd: Math.round(totalCostUsd * 10) / 10,
+            total_distance_km: Math.round(totalDist * 100) / 100,
+            daily_schedule: updatedDailySchedule,
+          };
+          setPlan(nextPlan);
+          setOriginalPlan(nextPlan);
           setVetoTokens((prev) => ({
             ...prev,
-            [memberName]: Math.max(0, (prev[memberName] || 1) - 1)
+            [memberName]: Math.max(0, (prev[memberName] || 1) - 1),
           }));
         }
         return result;
       }
     } catch (err) {
-      alert("Failed to veto spot: " + err.message);
+      toast.error("Failed to apply Nash Veto: " + err.message);
     }
     return null;
   };
@@ -393,12 +447,14 @@ export default function App() {
       if (prev.some((m) => m.name.toLowerCase() === user.name.toLowerCase())) return prev;
       return [{ name: user.name, interests: user.interests || ["Historical", "Beach"], budget_tier: user.budget_tier || "Mid-range" }, ...prev];
     });
+    toast.success(`Welcome back, ${user.name}!`);
     setShowTasteMatch(true);
   };
 
   const handleLogout = () => {
     clearUser();
     setCurrentUser(null);
+    toast.info("Signed out cleanly.");
   };
 
   const handleTasteMatchComplete = (interests, tasteEmbedding) => {
@@ -415,6 +471,7 @@ export default function App() {
         : m
     );
     setMembers(updatedMembers);
+    toast.success(`Taste vector calibrated: ${interests.slice(0, 3).join(", ")}`);
     setShowSetupWizard(true);
   };
 
@@ -428,14 +485,19 @@ export default function App() {
     setPace(config.pace);
     setShowSetupWizard(false);
     setIsSolverActive(true);
-    handleGeneratePlan({ city: config.city, days: config.days, members: config.members, pace: config.pace });
+    handleGeneratePlan(
+      { city: config.city, days: config.days, members: config.members, pace: config.pace },
+      { switchTab: true, notify: false }
+    );
   };
 
   const allItinerarySpots = (plan?.daily_schedule || []).flatMap((d) => d.spots || []);
 
   return (
-    <div className="tripsense-app">
+    <div className="min-h-screen flex flex-col bg-[#F8F6F1] text-[#141715]">
       <ScrollProgressRail />
+      <Toaster position="top-center" richColors />
+
       {showLoginModal && (
         <LoginScreen onLogin={handleUserLogin} onClose={() => setShowLoginModal(false)} />
       )}
@@ -444,7 +506,10 @@ export default function App() {
         <TasteMatchDeck
           userName={currentUser?.name || members[0]?.name || "Explorer"}
           onComplete={handleTasteMatchComplete}
-          onSkip={() => { setShowTasteMatch(false); setShowSetupWizard(true); }}
+          onSkip={() => {
+            setShowTasteMatch(false);
+            setShowSetupWizard(true);
+          }}
         />
       )}
 
@@ -459,7 +524,13 @@ export default function App() {
       )}
 
       {isSolverActive && (
-        <AiSolverModal city={city} onFinish={() => { setIsSolverActive(false); setActiveTab("itinerary"); }} />
+        <AiSolverModal
+          city={city}
+          onFinish={() => {
+            setIsSolverActive(false);
+            setActiveTab("itinerary");
+          }}
+        />
       )}
 
       {isReelOpen && (
@@ -496,11 +567,12 @@ export default function App() {
         onConnectionUpdated={(st) => {
           setConnectionState(st);
           if (st.mode === "live") {
-            handleGeneratePlan();
+            handleGeneratePlan({}, { switchTab: false, notify: false });
           }
         }}
       />
 
+      {/* Ultra-Clean Single-Row Floating Header */}
       <Navbar
         city={city}
         startDate={startDate}
@@ -509,7 +581,10 @@ export default function App() {
         roomCode={roomCode}
         members={members}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(t) => {
+          setActiveTab(t);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
         onOpenDatePicker={() => setIsDatePickerOpen(true)}
         isOfflineMode={isOfflineMode}
         onToggleOffline={() => setIsOfflineMode(!isOfflineMode)}
@@ -521,6 +596,7 @@ export default function App() {
         onOpenSetupWizard={() => setShowSetupWizard(true)}
         onOpenReel={() => setIsReelOpen(true)}
         onOpenCopilot={() => setIsCopilotOpen(true)}
+        onOpenSquad={() => setActiveTab("lobby")}
         connectionState={connectionState}
         onOpenConnect={() => setIsConnectOpen(true)}
         lang={lang}
@@ -529,29 +605,36 @@ export default function App() {
         setCurrency={setCurrency}
       />
 
-      <main className="main-content">
-        {(isOfflineMode || !isOnline) && (
-          <div className="offline-notice-banner">
-            <span className="dot" />
-            <span>
-              <strong>Offline Cache Active:</strong> Serving locally persisted itinerary, group consensus, and expense ledger.
-            </span>
-          </div>
+      {/* Focused View Router — Clean Separation Between Landing & Workspace */}
+      <main className="flex-1 w-full">
+        {activeTab === "home" && (
+          <ExploreLandingView
+            city={city}
+            days={days}
+            availableDestinations={availableDestinations}
+            fairnessScore={plan?.fairness_report?.fairness_score || 97.5}
+            co2SavedKg={plan?.eco_summary?.co2_saved_kg || 24.3}
+            lang={lang}
+            onLaunchPlan={handleHeroLaunch}
+            onStartSwipe={() => setShowTasteMatch(true)}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
+            onOpenItinerary={() => {
+              setActiveTab("itinerary");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onOpenMlLab={() => {
+              setActiveTab("fairness");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
         )}
 
-        {errorMsg && (
-          <div className="error-notice-banner">
-            <span>⚠️ {errorMsg}</span>
-            <button type="button" onClick={() => handleGeneratePlan()}>Retry</button>
-          </div>
-        )}
-
-        <div style={{ display: activeTab === "itinerary" ? "block" : "none" }}>
+        {activeTab === "itinerary" && (
           <ItineraryTab
             plan={plan}
             city={city}
             startDate={startDate}
-            onGeneratePlan={() => handleGeneratePlan()}
+            onGeneratePlan={() => handleGeneratePlan({}, { switchTab: true, notify: true })}
             isLoading={isLoading}
             onSelectSpot={(spot) => setActiveModalSpot(spot)}
             isRainSimulated={isRainSimulated}
@@ -566,60 +649,62 @@ export default function App() {
             onVetoSpot={handleVetoSpot}
             onBookSpot={(spot) => setBookingSpot(spot)}
             currentUser={currentUser}
-            expenses={expenses}
             onOpenReel={() => setIsReelOpen(true)}
-            onOpenSetupWizard={() => setShowSetupWizard(true)}
-            onOpenSwipe={() => setShowTasteMatch(true)}
-            onOpenLogin={() => setShowLoginModal(true)}
-            onOpenMlLab={() => setActiveTab("fairness")}
-            connectionState={connectionState}
-            onOpenConnect={() => setIsConnectOpen(true)}
-            vetoNotification={vetoNotification}
-            lang={lang}
+            onOpenDatePicker={() => setIsDatePickerOpen(true)}
+            onOpenSquad={() => setActiveTab("lobby")}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
             currency={currency}
           />
-        </div>
+        )}
 
-        <div style={{ display: activeTab === "lobby" ? "block" : "none" }}>
-          <LobbyTab
-            roomCode={roomCode}
-            members={members}
-            setMembers={handleSetMembers}
-            consensusStrategy={consensusStrategy}
-            setConsensusStrategy={setConsensusStrategy}
-            promoteHiddenGems={promoteHiddenGems}
-            setPromoteHiddenGems={setPromoteHiddenGems}
-            pace={pace}
-            setPace={setPace}
-            onGeneratePlan={() => handleGeneratePlan()}
-            isLoading={isLoading}
-          />
-        </div>
+        {activeTab === "lobby" && (
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-24">
+            <LobbyTab
+              roomCode={roomCode}
+              members={members}
+              setMembers={handleSetMembers}
+              consensusStrategy={consensusStrategy}
+              setConsensusStrategy={setConsensusStrategy}
+              promoteHiddenGems={promoteHiddenGems}
+              setPromoteHiddenGems={setPromoteHiddenGems}
+              pace={pace}
+              setPace={setPace}
+              onGeneratePlan={() => handleGeneratePlan({}, { switchTab: true, notify: true })}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
 
-        <div style={{ display: activeTab === "expenses" ? "block" : "none" }}>
-          <ExpenseSplitterTab
-            members={members}
-            itinerarySpots={allItinerarySpots}
-            expenses={expenses}
-            setExpenses={setExpenses}
-            settledDebts={settledDebts}
-            setSettledDebts={setSettledDebts}
-          />
-        </div>
+        {activeTab === "expenses" && (
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-24">
+            <ExpenseSplitterTab
+              members={members}
+              itinerarySpots={allItinerarySpots}
+              expenses={expenses}
+              setExpenses={setExpenses}
+              settledDebts={settledDebts}
+              setSettledDebts={setSettledDebts}
+            />
+          </div>
+        )}
 
-        <div style={{ display: activeTab === "fairness" ? "block" : "none" }}>
-          <FairnessInsightsTab
-            plan={plan}
-            members={members}
-            consensusStrategy={consensusStrategy}
-            city={city}
-            currency={currency}
-          />
-        </div>
+        {activeTab === "fairness" && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-24">
+            <FairnessInsightsTab
+              plan={plan}
+              members={members}
+              consensusStrategy={consensusStrategy}
+              city={city}
+              currency={currency}
+            />
+          </div>
+        )}
       </main>
 
       <EditorialFooter onOpenMlLab={() => setActiveTab("fairness")} />
-      <FloatingQuickActions city={city} roomCode={roomCode} onOpenCopilot={() => setIsCopilotOpen(true)} />
+      {activeTab !== "home" && (
+        <FloatingQuickActions onOpenCopilot={() => setIsCopilotOpen(true)} />
+      )}
       <CookieConsentBanner />
 
       <DestinationDatePickerModal
@@ -636,7 +721,7 @@ export default function App() {
           setDays(data.days);
           const prefix = data.city.substring(0, 3).toUpperCase();
           setRoomCode(`${prefix}-${Math.floor(100 + Math.random() * 900)}`);
-          handleGeneratePlan({ city: data.city, days: data.days });
+          handleGeneratePlan({ city: data.city, days: data.days }, { switchTab: true, notify: true });
         }}
       />
 
@@ -650,15 +735,14 @@ export default function App() {
         currency={currency}
       />
 
-      {/* Mobile Bottom Dock */}
-      <nav className="mobile-bottom-dock">
+      {/* Clean 5-Item Mobile Bottom Dock */}
+      <nav className="mobile-bottom-dock" aria-label="Mobile Navigation">
         {[
-          { id: "itinerary", label: "Explore", icon: Compass },
-          { id: "map", label: "Map", icon: Map },
-          { id: "expenses", label: "Splitwise", icon: DollarSign },
-          { id: "lobby", label: "Squad", icon: Users },
-          { id: "fairness", label: "Q1 Lab", icon: Award },
-          { id: "copilot", label: "Copilot", icon: Bot },
+          { id: "home", label: "Explore", icon: Compass },
+          { id: "itinerary", label: "Itinerary", icon: Map },
+          { id: "expenses", label: "Expenses", icon: DollarSign },
+          { id: "fairness", label: "AI Lab", icon: Award },
+          { id: "copilot", label: "Concierge", icon: Bot },
         ].map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id || (item.id === "copilot" && isCopilotOpen);
@@ -667,29 +751,18 @@ export default function App() {
               key={item.id}
               type="button"
               onClick={() => {
-                if (item.id === "map") {
-                  setActiveTab("itinerary");
-                  setTimeout(() => document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" }), 80);
-                } else if (item.id === "copilot") {
+                if (item.id === "copilot") {
                   setIsCopilotOpen(true);
                 } else {
                   setActiveTab(item.id);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }
               }}
-              style={{
-                background: "none",
-                border: "none",
-                color: active ? "var(--safety-orange)" : "var(--granite-600)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "2px",
-                fontSize: "10px",
-                fontWeight: active ? 800 : 600,
-                cursor: "pointer",
-              }}
+              className={`bg-transparent border-none flex flex-col items-center gap-0.5 text-[10px] cursor-pointer ${
+                active ? "text-[#D94E28] font-bold" : "text-[#5A605C] font-medium"
+              }`}
             >
-              <Icon size={18} />
+              <Icon className="w-[18px] h-[18px]" />
               <span>{item.label}</span>
             </button>
           );

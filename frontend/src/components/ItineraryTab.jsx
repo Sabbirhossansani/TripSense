@@ -1,24 +1,24 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   Navigation,
   Sparkles,
   Film,
-  SlidersHorizontal,
-  ShieldAlert,
-  Compass,
-  CheckCircle2,
+  Users,
+  CloudRain,
+  Bot,
+  Calendar,
   Leaf,
+  Scale,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import LeafletMap from "./LeafletMap";
 import SpotCard from "./SpotCard";
 import WeatherAlertBanner from "./WeatherAlertBanner";
 import MemberProfileModal from "./MemberProfileModal";
-import EditorialHero from "./EditorialHero";
-import BeforeAfterComparer from "./BeforeAfterComparer";
-import EcoImpactCalculator from "./EcoImpactCalculator";
 import { ShimmerCardSkeleton, StaggerContainer, StaggerItem } from "./MotionPrimitives";
-import { SPOT_IMAGES } from "../assets/images";
 import { formatCurrency } from "../api/client";
 
 export default function ItineraryTab({
@@ -40,37 +40,19 @@ export default function ItineraryTab({
   onVetoSpot,
   onBookSpot,
   currentUser,
-  expenses = [],
   onOpenReel,
-  onOpenSetupWizard,
-  onOpenSwipe,
-  onOpenLogin,
-  onOpenMlLab,
-  connectionState,
-  onOpenConnect,
-  vetoNotification: externalVetoNotification = null,
-  lang = "EN",
+  onOpenDatePicker,
+  onOpenSquad,
+  onOpenCopilot,
   currency = "BDT",
 }) {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [activeProfileMember, setActiveProfileMember] = useState(null);
-  const [localVetoNotification, setLocalVetoNotification] = useState(null);
-
-  const activeVetoNotification = externalVetoNotification || localVetoNotification;
 
   const dailySchedule = plan?.daily_schedule || [];
   const currentDay = dailySchedule[selectedDayIndex] || dailySchedule[0] || null;
   const currentSpots = currentDay?.spots || [];
-  const allSpots = dailySchedule.flatMap((d) => d.spots || []);
-
-  const heroImage =
-    SPOT_IMAGES[101] ||
-    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80";
-
-  const totalSpentBdt = expenses.reduce((sum, e) => sum + (e.amountBDT || 0), 0);
-  const estimatedCostBdt = plan?.total_estimated_cost_bdt || 2500;
-  const budgetRatio = Math.min(100, Math.round((totalSpentBdt / Math.max(1, estimatedCostBdt)) * 100));
 
   const getDayDateLabel = (dayIdx) => {
     try {
@@ -83,405 +65,256 @@ export default function ItineraryTab({
   };
 
   const handleVeto = async (spot) => {
-    const memberName = currentUser?.name || members[0]?.name || "Sadia";
+    const memberName = currentUser?.name || members[0]?.name || "Rahat";
     const userRemainingTokens = vetoTokens[memberName] ?? 1;
 
     if (userRemainingTokens <= 0) {
-      alert(`${memberName} has already used their 1 Nash Veto Token for this trip!`);
+      toast.warning(`${memberName} has already used their Nash Veto token for this trip.`);
       return;
     }
 
     if (onVetoSpot) {
       const res = await onVetoSpot(spot, memberName);
       if (res && res.notification) {
-        setLocalVetoNotification(res.notification);
-        setTimeout(() => setLocalVetoNotification(null), 5000);
+        if (res.success) toast.success(res.notification);
+        else toast.info(res.notification);
       }
     }
   };
 
   const activeUserName = currentUser?.name || members[0]?.name || "Rahat";
   const userTokens = vetoTokens[activeUserName] ?? 1;
-  const fairnessReport = plan?.fairness_report || { fairness_score: 78.4 };
-  const ecoSummary = plan?.eco_summary || { co2_saved_kg: 11.4, local_sme_ratio_pct: 83.3, total_eco_points: 520 };
+  const fairnessReport = plan?.fairness_report || { fairness_score: 94.2 };
+  const ecoSummary = plan?.eco_summary || { co2_saved_kg: 18.4, total_eco_points: 520 };
 
   return (
-    <div style={{ width: "100%", paddingBottom: "40px" }}>
-      {/* Editorial Hero Showcase */}
-      <EditorialHero
-        city={city}
-        fairnessScore={fairnessReport.fairness_score}
-        co2SavedKg={ecoSummary.co2_saved_kg}
-        lang={lang}
-        currentUser={currentUser}
-        connectionState={connectionState}
-        onStartSwipe={onOpenSwipe}
-        onOpenWizard={onOpenSetupWizard}
-        onOpenLogin={onOpenLogin}
-        onOpenMlLab={onOpenMlLab}
-        onOpenConnect={onOpenConnect}
-      />
-
-      {/* Loading Skeletons (Zero CLS) */}
+    <div className="max-w-[1380px] mx-auto px-4 sm:px-6 pt-5 pb-24">
+      {/* Loading Skeletons */}
       {isLoading && (!plan || dailySchedule.length === 0) && (
-        <div style={{ marginBottom: "20px" }}>
-          <ShimmerCardSkeleton height={160} />
-          <ShimmerCardSkeleton height={130} />
-          <ShimmerCardSkeleton height={130} />
+        <div className="space-y-3 max-w-3xl mx-auto mt-8">
+          <ShimmerCardSkeleton height={110} />
+          <ShimmerCardSkeleton height={135} />
+          <ShimmerCardSkeleton height={135} />
         </div>
       )}
 
-      {/* Fallback CTA if no plan loaded and not loading */}
+      {/* Empty State */}
       {!isLoading && (!plan || dailySchedule.length === 0) && (
-        <div
-          style={{
-            maxWidth: "620px",
-            margin: "24px auto",
-            textAlign: "center",
-            background: "#FFFFFF",
-            borderRadius: "24px",
-            padding: "36px 24px",
-            border: "1px solid var(--stone-border)",
-          }}
-        >
-          <div style={{ width: "60px", height: "60px", borderRadius: "18px", background: "var(--safety-orange-soft)", color: "var(--safety-orange)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: "14px" }}>
-            <Navigation size={30} />
+        <div className="max-w-lg mx-auto my-12 text-center bg-white rounded-3xl border border-[#E6E1D6] p-10">
+          <div className="w-12 h-12 rounded-2xl bg-[#FDF0EB] text-[#D94E28] inline-flex items-center justify-center mb-4">
+            <Navigation className="w-6 h-6" />
           </div>
-          <h2 className="font-display" style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>
-            Ready to Generate Your {city} FairNet Plan?
+          <h2 className="font-display text-2xl font-semibold text-[#141715]">
+            Build your {city} itinerary
           </h2>
-          <p style={{ fontSize: "13px", color: "var(--granite-600)", lineHeight: 1.5, marginBottom: "20px" }}>
-            Balances all squad preferences using TripSense-FairNet neural consensus & 2-Opt TSP route scheduling.
+          <p className="text-sm text-[#5A605C] mt-2 mb-6">
+            FairNet balances every friend&apos;s taste and budget along a shortest-path 2-Opt route.
           </p>
           <button
             type="button"
             onClick={onGeneratePlan}
-            className="liquid-btn"
-            style={{
-              background: "var(--safety-orange)",
-              color: "#FFFFFF",
-              border: "none",
-              padding: "13px 26px",
-              borderRadius: "14px",
-              fontSize: "14px",
-              fontWeight: 800,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
+            className="inline-flex items-center gap-2 rounded-full bg-[#D94E28] hover:bg-[#BF401E] text-white px-6 py-3 text-sm font-semibold border-none cursor-pointer transition"
           >
-            <Sparkles size={16} />
-            <span>Generate {city} Itinerary</span>
+            <Sparkles className="w-4 h-4" />
+            <span>Generate {city} Plan</span>
           </button>
         </div>
       )}
 
-      {/* Active Command Center + Asymmetrical Editorial Workspace */}
+      {/* Clean Mindtrip Split-Screen Trip Workspace */}
       {plan && dailySchedule.length > 0 && (
         <>
-          {/* Command Center Summary Banner */}
-          <div
-            style={{
-              position: "relative",
-              borderRadius: "24px",
-              overflow: "hidden",
-              marginBottom: "16px",
-              boxShadow: "0 12px 30px rgba(26, 29, 28, 0.12)",
-              background: "#1A1D1C",
-            }}
-          >
-            <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${heroImage})`, backgroundSize: "cover", backgroundPosition: "center", opacity: 0.34 }} />
-
-            <div style={{ position: "relative", zIndex: 10, padding: "22px", color: "#FAF9F6" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "14px" }}>
-                <div>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.16)", backdropFilter: "blur(6px)", padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: 800, marginBottom: "6px" }}>
-                    <Compass size={13} color="#FF9F7A" />
-                    <span>{dailySchedule.length}-DAY EXPEDITION • {fairnessReport.model_used || "TRIPSENSE-FAIRNET"}</span>
-                  </div>
-                  <h2 className="font-display" style={{ fontSize: "24px", fontWeight: 900, margin: 0 }}>
-                    {city} Squad Command Center
-                  </h2>
+          {/* ONE Clean, Breathable Trip Context Header */}
+          <div className="bg-white border border-[#E6E1D6] rounded-3xl p-5 sm:p-6 mb-6 shadow-[0_2px_12px_rgba(20,23,21,0.03)]">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Left: Title + Calm Metrics */}
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-[#141715] m-0">
+                    {city}
+                  </h1>
+                  <button
+                    type="button"
+                    onClick={onOpenDatePicker}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#F8F6F1] hover:bg-[#EFECE4] border border-[#E6E1D6] px-3 py-1 text-xs font-medium text-[#141715] cursor-pointer transition"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-[#D94E28]" />
+                    <span>{dailySchedule.length} Days • Change</span>
+                  </button>
                 </div>
 
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {onOpenReel && (
-                    <button
-                      type="button"
-                      onClick={onOpenReel}
-                      className="liquid-btn"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        background: "var(--safety-orange)",
-                        border: "none",
-                        borderRadius: "12px",
-                        padding: "9px 14px",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        color: "#FFFFFF",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Film size={14} />
-                      <span>15s Trip Reel</span>
-                    </button>
-                  )}
-
-                  {onOpenSetupWizard && (
-                    <button
-                      type="button"
-                      onClick={onOpenSetupWizard}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        background: "rgba(255,255,255,0.16)",
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        borderRadius: "12px",
-                        padding: "9px 13px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        color: "#FFFFFF",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <SlidersHorizontal size={14} />
-                      <span>Setup Wizard</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="glass-dark" style={{ borderRadius: "16px", padding: "14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#B8C0BC" }}>SQUAD BUDGET METER</span>
-                  <span className="font-mono-num" style={{ fontSize: "12px", fontWeight: 800, color: "#9FE0C4" }}>
-                    {formatCurrency(totalSpentBdt, currency)} logged / ~{formatCurrency(estimatedCostBdt, currency)} est.
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#5A605C]">
+                  <span className="inline-flex items-center gap-1.5 font-mono-num">
+                    <Scale className="w-3.5 h-3.5 text-[#D94E28]" />
+                    <strong className="text-[#141715]">{fairnessReport.fairness_score}/100</strong> FairNet
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-mono-num">
+                    <Leaf className="w-3.5 h-3.5 text-[#1E4D3F]" />
+                    <strong className="text-[#1E4D3F]">-{ecoSummary.co2_saved_kg} kg</strong> CO₂ saved
+                  </span>
+                  <span className="font-mono-num">
+                    <strong className="text-[#141715]">{plan.total_distance_km} km</strong> 2-Opt route
+                  </span>
+                  <span className="font-mono-num">
+                    Est. <strong className="text-[#141715]">{formatCurrency(plan.total_estimated_cost_bdt, currency)}</strong>
                   </span>
                 </div>
+              </div>
 
-                <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.16)", borderRadius: "999px", overflow: "hidden", marginBottom: "10px" }}>
-                  <div style={{ width: `${budgetRatio}%`, height: "100%", background: budgetRatio > 90 ? "#E85D2A" : "linear-gradient(90deg, #386655 0%, #C9933B 100%)", borderRadius: "999px" }} />
-                </div>
+              {/* Right: Clean Single-Row Action Bar */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenSquad}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#F8F6F1] hover:bg-[#EFECE4] border border-[#E6E1D6] px-3.5 py-2 text-xs font-semibold text-[#141715] cursor-pointer transition"
+                >
+                  <Users className="w-3.5 h-3.5 text-[#1E4D3F]" />
+                  <span>Squad ({members.length})</span>
+                </button>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-                  <div style={{ display: "flex", gap: "14px", fontSize: "11px", color: "#E2DDD3", flexWrap: "wrap" }}>
-                    <span>📍 <strong className="font-mono-num">{allSpots.length}</strong> POIs</span>
-                    <span>🚗 <strong className="font-mono-num">{plan.total_distance_km} km</strong> 2-Opt Route</span>
-                    <span>⚖️ <strong className="font-mono-num">{fairnessReport.fairness_score}/100</strong> Fairness</span>
-                    <span style={{ color: "#9FE0C4" }}><Leaf size={11} style={{ verticalAlign: "middle" }} /> <strong>{ecoSummary.co2_saved_kg} kg</strong> CO₂ Saved</span>
-                  </div>
+                <button
+                  type="button"
+                  onClick={onToggleRainSimulation}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold border cursor-pointer transition ${
+                    isRainSimulated || isRerouted
+                      ? "bg-[#1E4D3F] text-white border-[#1E4D3F]"
+                      : "bg-[#F8F6F1] hover:bg-[#EFECE4] text-[#141715] border-[#E6E1D6]"
+                  }`}
+                >
+                  <CloudRain className="w-3.5 h-3.5" />
+                  <span>{isRainSimulated || isRerouted ? "Rain Active" : "Rain Shield"}</span>
+                </button>
 
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "rgba(56,102,85,0.45)", color: "#A7F3D0", padding: "3px 10px", borderRadius: "999px", fontSize: "10px", fontWeight: 700 }}>
-                    <CheckCircle2 size={11} />
-                    <span>FairNet + Least-Misery Verified</span>
-                  </div>
-                </div>
+                {onOpenReel && (
+                  <button
+                    type="button"
+                    onClick={onOpenReel}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#F8F6F1] hover:bg-[#EFECE4] border border-[#E6E1D6] px-3.5 py-2 text-xs font-semibold text-[#141715] cursor-pointer transition"
+                  >
+                    <Film className="w-3.5 h-3.5 text-[#B8863B]" />
+                    <span>15s Reel</span>
+                  </button>
+                )}
+
+                {onOpenCopilot && (
+                  <button
+                    type="button"
+                    onClick={onOpenCopilot}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#141715] hover:bg-[#262C29] text-white px-4 py-2 text-xs font-semibold border-none cursor-pointer transition"
+                  >
+                    <Bot className="w-3.5 h-3.5 text-[#F4A586]" />
+                    <span>AI Concierge</span>
+                  </button>
+                )}
               </div>
             </div>
-          </div>
 
-          {/* Squad Status Row */}
-          <div style={{ background: "#FFFFFF", borderRadius: "18px", border: "1px solid var(--stone-border)", padding: "12px 16px", marginBottom: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--granite-800)" }}>Squad Status:</span>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {/* Subtle Squad Chips Strip */}
+            <div className="mt-4 pt-3.5 border-t border-[#F1EDE5] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 {members.map((m, idx) => {
-                  const tokensLeft = vetoTokens[m.name] ?? 1;
+                  const left = vetoTokens[m.name] ?? 1;
+                  const colors = ["bg-[#D94E28]", "bg-[#1E4D3F]", "bg-[#B8863B]", "bg-[#262C29]"];
                   return (
-                    <div
+                    <button
                       key={m.name}
+                      type="button"
                       onClick={() => setActiveProfileMember(m)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--stone-border)",
-                        borderRadius: "999px",
-                        padding: "3px 10px 3px 4px",
-                        cursor: "pointer",
-                      }}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#F8F6F1] hover:bg-[#EFECE4] border border-[#E6E1D6] pl-1 pr-2.5 py-1 text-xs cursor-pointer transition"
                     >
-                      <div
-                        style={{
-                          position: "relative",
-                          width: "22px",
-                          height: "22px",
-                          borderRadius: "50%",
-                          background: ["#E85D2A", "#25463B", "#C9933B", "#2A2F2D"][idx % 4],
-                          color: "#FFFFFF",
-                          fontSize: "11px",
-                          fontWeight: 800,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
+                      <span
+                        className={`w-5 h-5 rounded-full ${colors[idx % colors.length]} text-white text-[10px] font-bold flex items-center justify-center`}
                       >
                         {m.name.charAt(0)}
-                        <span style={{ position: "absolute", bottom: "-1px", right: "-1px", width: "7px", height: "7px", borderRadius: "50%", background: "#386655", border: "1.5px solid #FFFFFF" }} />
-                      </div>
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--granite-950)" }}>{m.name}</span>
-                      <span style={{ fontSize: "9px", fontWeight: 800, padding: "2px 6px", borderRadius: "999px", background: tokensLeft > 0 ? "var(--alpine-moss-soft)" : "var(--stone-muted)", color: tokensLeft > 0 ? "var(--alpine-moss)" : "var(--granite-600)" }}>
-                        {tokensLeft > 0 ? "1 Veto" : "Used"}
                       </span>
-                    </div>
+                      <span className="font-semibold text-[#141715]">{m.name}</span>
+                      <span className="text-[10px] font-medium text-[#5A605C]">
+                        {left > 0 ? "1 Veto" : "Used"}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
-            </div>
-
-            <div style={{ fontSize: "11px", color: "var(--granite-600)" }}>
-              Active: <strong>{activeUserName}</strong> ({userTokens} Veto Left)
+              <span className="text-[11px] text-[#5A605C]">
+                Active: <strong className="text-[#141715]">{activeUserName}</strong>
+              </span>
             </div>
           </div>
 
-          {activeVetoNotification && (
-            <div style={{ background: "var(--safety-orange-soft)", border: "1.5px solid #F7C6B3", borderRadius: "14px", padding: "10px 14px", marginBottom: "14px", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#9A2B14", fontWeight: 700 }}>
-              <ShieldAlert size={16} />
-              <span>{activeVetoNotification}</span>
+          {/* Progressive Disclosure Weather Banner — ONLY visible when Rain Mode or Reroute is active */}
+          {(isRainSimulated || isRerouted) && (
+            <div className="mb-5">
+              <WeatherAlertBanner
+                city={city}
+                isRainSimulated={isRainSimulated}
+                onToggleRainSimulation={onToggleRainSimulation}
+                onAutoReroute={onAutoReroute}
+                isRerouted={isRerouted}
+                onRevertPlan={onRevertPlan}
+                isLoading={isReplanning}
+                replannedNotifications={replannedNotifications}
+              />
             </div>
           )}
 
-          <WeatherAlertBanner
-            city={city}
-            isRainSimulated={isRainSimulated}
-            onToggleRainSimulation={onToggleRainSimulation}
-            onAutoReroute={onAutoReroute}
-            isRerouted={isRerouted}
-            onRevertPlan={onRevertPlan}
-            isLoading={isReplanning}
-            replannedNotifications={replannedNotifications}
-          />
-
-          {/* Days Tabs with shared layoutId indicator */}
-          <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "8px", marginBottom: "12px" }}>
-            {dailySchedule.map((day, idx) => {
-              const isSelected = selectedDayIndex === idx;
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedDayIndex(idx)}
-                  style={{
-                    position: "relative",
-                    flex: "1 0 auto",
-                    minWidth: "120px",
-                    padding: "11px 14px",
-                    borderRadius: "14px",
-                    border: "1px solid var(--stone-border)",
-                    background: "#FFFFFF",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    overflow: "hidden",
-                  }}
-                >
-                  {isSelected && (
-                    <motion.div
-                      layoutId="activeDayPill"
-                      transition={{ type: "spring", stiffness: 360, damping: 32 }}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        background: "var(--safety-orange-soft)",
-                        border: "2px solid var(--safety-orange)",
-                        borderRadius: "14px",
-                        zIndex: 0,
-                      }}
-                    />
-                  )}
-                  <div style={{ position: "relative", zIndex: 1 }}>
-                    <div style={{ fontSize: "12px", fontWeight: 800, color: isSelected ? "var(--safety-orange-hover)" : "var(--granite-950)" }}>
-                      Day {day.day}
-                    </div>
-                    <div style={{ fontSize: "11px", color: isSelected ? "var(--safety-orange)" : "var(--granite-600)", fontWeight: 600 }}>
-                      {getDayDateLabel(idx)}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Asymmetrical Editorial Split Layout: Sticky Map (Left/Top) + Timeline Cards (Right/Bottom) */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "20px",
-              alignItems: "start",
-              marginBottom: "26px",
-            }}
-          >
-            {/* Map Column */}
-            <div
-              id="map-section"
-              style={{
-                background: "#FFFFFF",
-                borderRadius: "22px",
-                border: "1px solid var(--stone-border)",
-                overflow: "hidden",
-                boxShadow: "0 8px 24px rgba(26,29,28,0.06)",
-                height: mapExpanded ? "70vh" : "420px",
-                transition: "height 0.3s ease",
-                position: "sticky",
-                top: "120px",
-              }}
-            >
-              <LeafletMap spots={currentSpots} onSelectSpot={onSelectSpot} city={city} isTabActive={true} />
-              <button
-                type="button"
-                onClick={() => {
-                  setMapExpanded(!mapExpanded);
-                  setTimeout(() => window.dispatchEvent(new Event("resize")), 320);
-                }}
-                style={{
-                  position: "absolute",
-                  top: "12px",
-                  left: "12px",
-                  zIndex: 10,
-                  background: "rgba(250, 249, 246, 0.92)",
-                  border: "1px solid var(--stone-border)",
-                  padding: "6px 12px",
-                  borderRadius: "10px",
-                  fontSize: "11px",
-                  fontWeight: 800,
-                  color: "var(--granite-950)",
-                  cursor: "pointer",
-                }}
-              >
-                {mapExpanded ? "Collapse Map" : "Expand Map"}
-              </button>
-            </div>
-
+          {/* Split-Screen Workspace: Left Timeline (7 cols) + Right Sticky Map (5 cols) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Timeline Column */}
-            <div>
+            <div className="lg:col-span-7 min-w-0">
+              {/* Day Selector Pills with spring layoutId */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 mb-4">
+                {dailySchedule.map((day, idx) => {
+                  const isSelected = selectedDayIndex === idx;
+                  return (
+                    <button
+                      key={day.day}
+                      type="button"
+                      onClick={() => setSelectedDayIndex(idx)}
+                      className="relative shrink-0 rounded-2xl px-4 py-2.5 text-left border border-[#E6E1D6] bg-white cursor-pointer overflow-hidden"
+                    >
+                      {isSelected && (
+                        <motion.span
+                          layoutId="activeDayPill"
+                          transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                          className="absolute inset-0 rounded-2xl bg-[#141715]"
+                        />
+                      )}
+                      <div className="relative z-10">
+                        <div className={`text-xs font-bold ${isSelected ? "text-white" : "text-[#141715]"}`}>
+                          Day {day.day}
+                        </div>
+                        <div className={`text-[11px] ${isSelected ? "text-white/75" : "text-[#5A605C]"}`}>
+                          {getDayDateLabel(idx)}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Clean Day Summary Strip */}
               {currentDay && (
-                <div style={{ background: "#FFFFFF", borderRadius: "16px", border: "1px solid var(--stone-border)", padding: "14px 16px", marginBottom: "14px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-3 mb-2">
                   <div>
-                    <div className="font-display" style={{ fontSize: "16px", fontWeight: 800, color: "var(--granite-950)" }}>
+                    <h2 className="font-display text-lg font-semibold text-[#141715] m-0">
                       {currentDay.title || `Day ${currentDay.day}`}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "var(--granite-600)" }}>
-                      {currentSpots.length} stops • 2-Opt shortest route
-                    </div>
+                    </h2>
+                    <p className="text-xs text-[#5A605C] m-0">
+                      {currentSpots.length} curated stops • shortest-path 2-Opt sequence
+                    </p>
                   </div>
-                  <div style={{ display: "flex", gap: "14px" }}>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--granite-600)" }}>DAY COST</div>
-                      <div className="font-mono-num" style={{ fontSize: "13px", fontWeight: 800 }}>{formatCurrency(currentDay.daily_cost_bdt ?? 0, currency)}</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--granite-600)" }}>TRANSIT</div>
-                      <div className="font-mono-num" style={{ fontSize: "13px", fontWeight: 800 }}>{currentDay.daily_distance_km ?? 0} km</div>
-                    </div>
+                  <div className="flex items-center gap-4 text-xs font-mono-num">
+                    <span className="text-[#5A605C]">
+                      Cost <strong className="text-[#141715]">{formatCurrency(currentDay.daily_cost_bdt ?? 0, currency)}</strong>
+                    </span>
+                    <span className="text-[#5A605C]">
+                      Transit <strong className="text-[#141715]">{currentDay.daily_distance_km ?? 0} km</strong>
+                    </span>
                   </div>
                 </div>
               )}
 
+              {/* Breathable Staggered Spot Cards */}
               <StaggerContainer key={`day-${selectedDayIndex}`}>
                 {currentSpots.map((spot, index) => (
                   <StaggerItem key={spot.id || index}>
@@ -499,18 +332,28 @@ export default function ItineraryTab({
                 ))}
               </StaggerContainer>
             </div>
+
+            {/* Sticky Interactive Map Column */}
+            <div
+              id="map-section"
+              className={`lg:col-span-5 relative rounded-3xl overflow-hidden border border-[#E6E1D6] bg-white shadow-[0_6px_26px_rgba(20,23,21,0.05)] lg:sticky lg:top-20 transition-all duration-300 ${
+                mapExpanded ? "h-[75vh]" : "h-[380px] lg:h-[calc(100vh-7.5rem)]"
+              }`}
+            >
+              <LeafletMap spots={currentSpots} onSelectSpot={onSelectSpot} city={city} isTabActive={true} />
+              <button
+                type="button"
+                onClick={() => {
+                  setMapExpanded((e) => !e);
+                  setTimeout(() => window.dispatchEvent(new Event("resize")), 320);
+                }}
+                className="absolute top-3 left-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md border border-[#E6E1D6] px-3 py-1.5 text-[11px] font-semibold text-[#141715] shadow-sm cursor-pointer hover:bg-[#F8F6F1] transition"
+              >
+                {mapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span>{mapExpanded ? "Compact" : "Expand"}</span>
+              </button>
+            </div>
           </div>
-
-          {/* Interactive Before / After Showcase Comparer */}
-          <BeforeAfterComparer city={city} />
-
-          {/* Interactive Sustainability & SME Calculator */}
-          <EcoImpactCalculator
-            spots={allSpots}
-            totalDistanceKm={plan.total_distance_km || 14.5}
-            defaultGroupSize={members.length || 3}
-            currency={currency}
-          />
         </>
       )}
 
