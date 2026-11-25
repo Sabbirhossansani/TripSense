@@ -81,8 +81,10 @@ class FairNetInference:
                     emb_dim=cfg.get("emb_dim", self.emb_dim),
                     poi_feat_dim=cfg.get("poi_feat_dim", 8),
                     user_feat_dim=cfg.get("user_feat_dim", 3),
-                    hidden_dim=cfg.get("hidden_dim", 128),
+                    hidden_dim=cfg.get("hidden_dim", 64),
                     num_heads=cfg.get("num_heads", 4),
+                    use_attention=cfg.get("use_attention", True),
+                    use_relational_stream=cfg.get("use_relational_stream", True),
                 ).to(self.device)
                 model.load_state_dict(ckpt["model_state_dict"])
                 model.eval()

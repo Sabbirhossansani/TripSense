@@ -1,17 +1,22 @@
 """
-Real Q1 Benchmark Dataset Loader for TripSense-FairNet & Neuro-Symbolic RAG.
-Downloads & prepares:
-  1. CRUISEResearchGroup/Massive-STEPS-Sydney (real POI trajectories -> multi-user groups)
-  2. osunlp/TravelPlanner (validation split -> constraint-grounded RAG evaluation)
+Dataset Loader & Zero-Leakage Multi-City Group Benchmark Builder for TripSense.
+
+Datasets:
+  1. CRUISEResearchGroup/Massive-STEPS-{Sydney, Melbourne, Tokyo, New-York}
+     Real Foursquare sequential check-in trails used to build chronological,
+     zero-leakage multi-member travel group benchmarks (2-5 members per group).
+  2. osunlp/TravelPlanner (validation split, 180 tasks)
+     Real benchmark for evaluating the Neuro-Symbolic Verifier on budget & constraints.
 """
 
 import os
 import json
+import math
+import hashlib
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
-from huggingface_hub import hf_hub_download, list_repo_files
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -20,240 +25,396 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), "data_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 
-def get_hf_token() -> str:
-    token = os.getenv("HF_TOKEN", "").strip()
-    if not token:
-        token_file = os.path.join(BASE_DIR, "HF_token.txt")
-        if os.path.exists(token_file):
-            import re
-            txt = open(token_file, "r", encoding="utf-8").read()
-            m = re.search(r"hf_[A-Za-z0-9]+", txt)
-            if m:
-                token = m.group(0)
-    return token
+def _slugify_city(city: str) -> str:
+    return city.strip().lower().replace("-", "_").replace(" ", "_")
 
 
-def load_massive_steps_sydney(max_rows: int = 35000) -> pd.DataFrame:
+def _get_hf_token() -> Optional[str]:
+    tok = os.getenv("HF_TOKEN", "").strip()
+    if tok:
+        return tok
+    token_file = os.path.join(BASE_DIR, "HF_token.txt")
+    if os.path.exists(token_file):
+        with open(token_file, "r", encoding="utf-8") as f:
+            txt = f.read().strip()
+            if txt:
+                return txt
+    return None
+
+
+def load_massive_steps_city(city: str = "Sydney", max_rows: int = 30000) -> pd.DataFrame:
     """
-    Downloads and returns the tabular check-in parquet from CRUISEResearchGroup/Massive-STEPS-Sydney.
+    Loads CRUISEResearchGroup/Massive-STEPS-{city} tabular check-in data,
+    caching cleanly as parquet in data_cache/ for deterministic fast reloads.
     """
-    cache_pq = os.path.join(CACHE_DIR, "massive_steps_sydney_tabular.parquet")
-    if os.path.exists(cache_pq):
-        df = pd.read_parquet(cache_pq)
-        return df.head(max_rows) if len(df) > max_rows else df
+    slug = _slugify_city(city)
+    local_parquet = os.path.join(CACHE_DIR, f"massive_steps_{slug}_tabular.parquet")
+    if os.path.exists(local_parquet):
+        df = pd.read_parquet(local_parquet)
+        if len(df) > max_rows:
+            df = df.iloc[:max_rows].copy()
+        return df
 
-    token = get_hf_token()
-    repo_id = "CRUISEResearchGroup/Massive-STEPS-Sydney"
-    files = list_repo_files(repo_id=repo_id, repo_type="dataset", token=token or None)
-    tabular_files = [f for f in files if "tabular" in f and f.endswith(".parquet")]
-    if not tabular_files:
-        tabular_files = [f for f in files if f.endswith(".parquet")]
-    if not tabular_files:
-        raise RuntimeError(f"No parquet files found in {repo_id}: {files}")
+    from huggingface_hub import HfApi, hf_hub_download
 
-    dfs = []
-    for tf in tabular_files:
-        local_p = hf_hub_download(
-            repo_id=repo_id,
-            filename=tf,
-            repo_type="dataset",
-            token=token or None,
-            local_dir=CACHE_DIR,
-        )
-        dfs.append(pd.read_parquet(local_p))
+    hf_token = _get_hf_token()
+    repo_id = f"CRUISEResearchGroup/Massive-STEPS-{city}"
+    api = HfApi(token=hf_token)
+    files = api.list_repo_files(repo_id=repo_id, repo_type="dataset")
 
-    df = pd.concat(dfs, ignore_index=True)
-    df.to_parquet(cache_pq, index=False)
-    print(f"[DatasetLoader] Loaded Massive-STEPS-Sydney tabular: {len(df)} rows, cols={list(df.columns)}")
-    return df.head(max_rows) if len(df) > max_rows else df
+    # Prefer tabular check-in csv/parquet inside repo
+    candidates = [
+        f for f in files
+        if ("tabular" in f.lower() or "checkin" in f.lower() or f.lower().endswith(".csv") or f.lower().endswith(".parquet"))
+        and ("train" in f.lower() or "checkins" in f.lower() or slug in f.lower() or f.endswith(".parquet") or f.endswith(".csv"))
+    ]
+    if not candidates:
+        candidates = [f for f in files if f.lower().endswith((".parquet", ".csv"))]
+    if not candidates:
+        raise FileNotFoundError(f"No tabular CSV/Parquet files found in {repo_id}: {files}")
 
-
-def load_travelplanner_val(max_rows: int = 180) -> pd.DataFrame:
-    """
-    Downloads and returns the validation split of osunlp/TravelPlanner.
-    """
-    cache_pq = os.path.join(CACHE_DIR, "travelplanner_validation.parquet")
-    if os.path.exists(cache_pq):
-        df = pd.read_parquet(cache_pq)
-        return df.head(max_rows)
-
-    token = get_hf_token()
-    repo_id = "osunlp/TravelPlanner"
-    files = list_repo_files(repo_id=repo_id, repo_type="dataset", token=token or None)
-    val_files = [f for f in files if "validation" in f and (f.endswith(".parquet") or f.endswith(".csv"))]
-    if not val_files:
-        # Check huggingface auto-converted parquet branch or CSV
-        csv_files = [f for f in files if f.endswith(".csv")]
-        val_files = [f for f in csv_files if "validation" in f] or csv_files
-
-    if not val_files:
-        raise RuntimeError(f"No validation file found in {repo_id}: {files}")
-
-    target_file = val_files[0]
-    local_p = hf_hub_download(
+    # Pick largest or tabular-named file first
+    candidates.sort(key=lambda x: (0 if "tabular" in x.lower() else 1, 0 if "checkin" in x.lower() else 1, len(x)))
+    chosen = candidates[0]
+    print(f"[DatasetLoader] Downloading {repo_id} -> {chosen}...", flush=True)
+    local_file = hf_hub_download(
         repo_id=repo_id,
-        filename=target_file,
+        filename=chosen,
         repo_type="dataset",
-        token=token or None,
         local_dir=CACHE_DIR,
+        token=hf_token,
     )
-    df = pd.read_parquet(local_p) if target_file.endswith(".parquet") else pd.read_csv(local_p)
-    df.to_parquet(cache_pq, index=False)
-    print(f"[DatasetLoader] Loaded TravelPlanner validation: {len(df)} rows, cols={list(df.columns)}")
-    return df.head(max_rows)
 
+    if local_file.endswith(".parquet"):
+        df = pd.read_parquet(local_file)
+    else:
+        df = pd.read_csv(local_file)
 
-def build_sydney_group_benchmark(
-    df: pd.DataFrame,
-    seed: int = 42,
-    n_groups: int = 900
-) -> Dict[str, Any]:
-    """
-    Constructs realistic multi-user travel group preference & POI interaction benchmark
-    from real Massive-STEPS-Sydney user check-in trajectories.
-    Each group consists of 2-4 real users who share destination context or overlapping venue visits.
-    Split chronologically/deterministically into train (70%), val (15%), test (15%).
-    """
-    rng = np.random.default_rng(seed)
+    # Normalize expected columns cleanly
+    col_map = {}
+    if "userid" in df.columns and "user_id" not in df.columns:
+        col_map["userid"] = "user_id"
+    if "venueid" in df.columns and "venue_id" not in df.columns:
+        col_map["venueid"] = "venue_id"
+    if "lat" in df.columns and "latitude" not in df.columns:
+        col_map["lat"] = "latitude"
+    if "lon" in df.columns and "longitude" not in df.columns:
+        col_map["lon"] = "longitude"
+    if "lng" in df.columns and "longitude" not in df.columns:
+        col_map["lng"] = "longitude"
+    if col_map:
+        df = df.rename(columns=col_map)
 
-    # Normalize column names
-    cols = {c.lower(): c for c in df.columns}
-    user_col = cols.get("user_id") or cols.get("userid")
-    venue_col = cols.get("venue_id") or cols.get("poi_id") or cols.get("name")
-    cat_col = cols.get("venue_category") or cols.get("category") or "venue_category"
-    name_col = cols.get("name") or venue_col
-    lat_col = cols.get("latitude")
-    lon_col = cols.get("longitude")
-
-    work = df.dropna(subset=[user_col, venue_col]).copy()
-    work["u_str"] = work[user_col].astype(str)
-    work["v_str"] = work[venue_col].astype(str)
-
-    # Unique venues table
-    venue_agg = {
-        name_col: "first",
-        cat_col: "first" if cat_col in work.columns else "size",
+    required_fill = {
+        "venue_category": "General Venue",
+        "name": "Unnamed Venue",
+        "trail_id": "0",
+        "latitude": 0.0,
+        "longitude": 0.0,
     }
-    if lat_col and lon_col:
-        venue_agg[lat_col] = "first"
-        venue_agg[lon_col] = "first"
+    for col, val in required_fill.items():
+        if col not in df.columns:
+            df[col] = val
 
-    venues_df = work.groupby("v_str", as_index=False).agg(venue_agg)
-    venues_df["popularity"] = work.groupby("v_str").size().reindex(venues_df["v_str"]).values
+    df = df.dropna(subset=["user_id", "venue_id"]).copy()
+    if len(df) > max_rows:
+        df = df.iloc[:max_rows].copy()
+    df.to_parquet(local_parquet, index=False)
+    print(f"[DatasetLoader] Cached {len(df)} rows for {city} -> {local_parquet}", flush=True)
+    return df
 
-    # Keep venues with >= 2 check-ins and users with >= 4 check-ins for meaningful splits
-    valid_venues = set(venues_df[venues_df["popularity"] >= 2]["v_str"])
-    work = work[work["v_str"].isin(valid_venues)]
-    user_counts = work["u_str"].value_counts()
-    valid_users = list(user_counts[user_counts >= 4].index)
-    work = work[work["u_str"].isin(valid_users)]
 
-    venues_df = venues_df[venues_df["v_str"].isin(set(work["v_str"]))].reset_index(drop=True)
-    venue_to_idx = {v: i for i, v in enumerate(venues_df["v_str"])}
-    user_to_venues: Dict[str, List[int]] = {}
-    for u, grp in work.groupby("u_str"):
-        user_to_venues[u] = list(dict.fromkeys(venue_to_idx[v] for v in grp["v_str"]))
+def load_massive_steps_sydney(max_rows: int = 30000) -> pd.DataFrame:
+    """Backward-compatible helper loading Sydney check-ins."""
+    return load_massive_steps_city("Sydney", max_rows=max_rows)
 
-    # Simulate realistic crowd/eco/cost metadata deterministically from venue category & popularity
-    max_pop = max(1, float(venues_df["popularity"].max()))
-    venue_features = np.zeros((len(venues_df), 8), dtype=np.float32)
-    cats = venues_df[cat_col].astype(str).tolist() if cat_col in venues_df.columns else ["Place"] * len(venues_df)
-    indoor_keywords = ("museum", "gallery", "cafe", "coffee", "restaurant", "mall", "bar", "theater", "cinema", "shop", "bakery", "library")
-    eco_keywords = ("park", "garden", "beach", "trail", "botanical", "harbor", "water", "museum", "walk", "art")
 
-    lats = venues_df[lat_col].astype(float).values if lat_col in venues_df.columns else np.full(len(venues_df), -33.8688)
-    lons = venues_df[lon_col].astype(float).values if lon_col in venues_df.columns else np.full(len(venues_df), 151.2093)
-    center_lat, center_lon = float(np.median(lats)), float(np.median(lons))
+def load_travelplanner_val() -> pd.DataFrame:
+    """Loads osunlp/TravelPlanner validation split (180 tasks)."""
+    local_parquet = os.path.join(CACHE_DIR, "travelplanner_validation.parquet")
+    if os.path.exists(local_parquet):
+        return pd.read_parquet(local_parquet)
 
-    for idx, row in venues_df.iterrows():
-        c_low = str(cats[idx]).lower()
-        pop_norm = float(np.log1p(row["popularity"]) / np.log1p(max_pop))
-        dist_deg = float(np.hypot(lats[idx] - center_lat, lons[idx] - center_lon))
-        dist_norm = float(min(1.0, dist_deg / 0.15))
-        is_indoor = 1.0 if any(k in c_low for k in indoor_keywords) else 0.0
-        is_hidden = 1.0 if pop_norm < 0.45 else 0.0
-        eco_score = 0.85 if any(k in c_low for k in eco_keywords) else (0.72 if is_indoor else 0.58)
-        price_norm = 0.25 if ("park" in c_low or "beach" in c_low) else (0.55 if is_indoor else 0.40)
-        rating_norm = float(np.clip(0.65 + 0.25 * (1.0 - 0.3 * pop_norm) + 0.1 * eco_score, 0.4, 0.98))
-        sme_share = 0.85 if is_hidden > 0.5 else 0.50
+    local_csv = os.path.join(CACHE_DIR, "validation.csv")
+    if os.path.exists(local_csv):
+        df = pd.read_csv(local_csv)
+        df.to_parquet(local_parquet, index=False)
+        return df
 
-        venue_features[idx] = [
-            dist_norm,
-            price_norm,
-            pop_norm,         # crowd density proxy
-            rating_norm,
-            is_indoor,
-            is_hidden,
-            eco_score,
-            sme_share,
-        ]
+    from huggingface_hub import hf_hub_download
 
-    # Build Groups (mix of similar-taste friends & diverse-taste conflicting groups)
-    users_list = list(user_to_venues.keys())
-    venue_to_users: Dict[int, List[str]] = {}
-    for u, vlist in user_to_venues.items():
-        for v in vlist:
-            venue_to_users.setdefault(v, []).append(u)
+    hf_token = _get_hf_token()
+    path = hf_hub_download(
+        repo_id="osunlp/TravelPlanner",
+        filename="validation.csv",
+        repo_type="dataset",
+        local_dir=CACHE_DIR,
+        token=hf_token,
+    )
+    df = pd.read_csv(path)
+    df.to_parquet(local_parquet, index=False)
+    return df
 
-    co_visit_venues = [v for v, ulist in venue_to_users.items() if len(ulist) >= 2]
-    groups = []
 
-    for g_id in range(n_groups):
-        if co_visit_venues and rng.random() < 0.78:
-            # Grounded group: pick 2-4 users who genuinely co-visited at least 1 anchor venue
-            anchor_v = int(rng.choice(co_visit_venues))
-            pool = venue_to_users[anchor_v]
-            k = int(min(len(pool), rng.integers(2, 5)))
-            members = list(rng.choice(pool, size=k, replace=False))
-            # Add occasional conflicting friend for realistic fairness challenge
-            if len(members) < 4 and rng.random() < 0.45:
-                extra = str(rng.choice(users_list))
-                if extra not in members:
-                    members.append(extra)
-        else:
-            k = int(rng.integers(2, 5))
-            members = list(rng.choice(users_list, size=min(k, len(users_list)), replace=False))
+def _category_priors(category: str) -> Dict[str, float]:
+    """Domain-grounded tourism category priors for cost, indoor flag, eco & SME share."""
+    cat = str(category or "").lower()
+    is_indoor = 1.0 if any(k in cat for k in (
+        "museum", "gallery", "cafe", "coffee", "restaurant", "mall", "shop",
+        "bar", "theater", "cinema", "library", "aquarium", "hotel", "bakery",
+        "station", "book", "art", "food"
+    )) else 0.0
 
-        # Target positive POIs for the group (shared or union of late-sequence venues)
-        # Hold out last check-ins of members as ground-truth targets, keep earlier check-ins as member history
-        member_histories = {}
-        target_pool = []
-        for m in members:
-            seq = user_to_venues[m]
-            split_pt = max(2, int(len(seq) * 0.7))
-            member_histories[m] = seq[:split_pt]
-            target_pool.extend(seq[split_pt:])
-
-        if not target_pool:
-            continue
-
-        # Prefer co-visited holdouts if available
-        counts = pd.Series(target_pool).value_counts()
-        pos_targets = list(counts.index[:min(5, len(counts))])
-
-        groups.append({
-            "group_id": g_id,
-            "members": members,
-            "member_histories": member_histories,
-            "member_budgets": [float(rng.choice([0.25, 0.55, 0.90])) for _ in members],
-            "pos_targets": [int(x) for x in pos_targets],
-        })
-
-    rng.shuffle(groups)
-    n_total = len(groups)
-    n_train = int(0.70 * n_total)
-    n_val = int(0.15 * n_total)
+    if any(k in cat for k in ("park", "garden", "beach", "trail", "lake", "mountain", "nature", "scenic", "lookout", "forest")):
+        price_base, eco_base, sme_base = 0.12, 0.90, 0.80
+    elif any(k in cat for k in ("museum", "historic", "temple", "mosque", "shrine", "church", "art", "landmark", "palace", "cultural")):
+        price_base, eco_base, sme_base = 0.28, 0.84, 0.78
+    elif any(k in cat for k in ("market", "street", "bakery", "cafe", "tea", "noodle", "diner", "food", "ramen", "bistro")):
+        price_base, eco_base, sme_base = 0.38, 0.68, 0.86
+    elif any(k in cat for k in ("mall", "department", "hotel", "resort", "casino", "nightclub", "steakhouse", "airport")):
+        price_base, eco_base, sme_base = 0.78, 0.38, 0.32
+    elif any(k in cat for k in ("station", "platform", "subway", "bus", "ferry", "train", "tram")):
+        price_base, eco_base, sme_base = 0.18, 0.88, 0.55
+    else:
+        price_base, eco_base, sme_base = 0.44, 0.62, 0.62
 
     return {
-        "venues_df": venues_df,
-        "venue_features": venue_features,
-        "venue_texts": [
-            f"{row[name_col]} ({cats[i]}) - Sydney tourist attraction"
-            for i, row in venues_df.iterrows()
-        ],
-        "popularity": venues_df["popularity"].values.astype(np.float32),
-        "user_to_venues": user_to_venues,
-        "train_groups": groups[:n_train],
-        "val_groups": groups[n_train:n_train + n_val],
-        "test_groups": groups[n_train + n_val:],
+        "is_indoor": is_indoor,
+        "price_base": price_base,
+        "eco_base": eco_base,
+        "sme_base": sme_base,
     }
+
+
+def build_city_group_benchmark(
+    df: pd.DataFrame,
+    num_groups: int = 850,
+    seed: int = 42,
+    city_name: str = "Sydney",
+) -> Dict[str, Any]:
+    """
+    Constructs a chronological, zero-leakage multi-member group recommendation benchmark
+    from real check-in trails. Held-out positive targets for group G are STRICTLY excluded
+    from member histories used to form user taste vectors.
+
+    Venue feature vector (8-dim, city-invariant [0, 1] scale):
+      [dist_norm, price_norm, pop_norm, rating_norm, is_indoor, is_hidden, eco_score, sme_share]
+    User feature vector (3-dim, [0, 1] scale):
+      [budget_tier, history_diversity, flexibility]
+    """
+    rng = np.random.RandomState(seed)
+
+    # Sort chronologically if timestamp is present so later check-ins are held out cleanly
+    work = df.copy()
+    if "timestamp" in work.columns:
+        work["_ts"] = pd.to_datetime(work["timestamp"], errors="coerce")
+        work = work.sort_values(["_ts", "trail_id", "venue_id"], na_position="last").reset_index(drop=True)
+
+    # Unique venues table (preserving deterministic appearance order)
+    venues_df = work.drop_duplicates("venue_id").reset_index(drop=True)
+    venue_ids = venues_df["venue_id"].tolist()
+    vid_to_idx = {vid: idx for idx, vid in enumerate(venue_ids)}
+    num_venues = len(venues_df)
+
+    # Compute check-in counts for venue popularity and long-tail detection
+    pop_counts = work["venue_id"].value_counts().to_dict()
+    max_log_pop = math.log1p(max(pop_counts.values())) if pop_counts else 1.0
+
+    # Spatial centroid distance
+    lat_med = float(pd.to_numeric(venues_df["latitude"], errors="coerce").dropna().median() or 0.0)
+    lon_med = float(pd.to_numeric(venues_df["longitude"], errors="coerce").dropna().median() or 0.0)
+
+    venue_feats = np.zeros((num_venues, 8), dtype=np.float32)
+    venue_records: List[Dict[str, Any]] = []
+
+    for idx, row in venues_df.iterrows():
+        vid = row["venue_id"]
+        cat = str(row.get("venue_category", "General Venue"))
+        priors = _category_priors(cat)
+
+        lat = float(row.get("latitude", lat_med) or lat_med)
+        lon = float(row.get("longitude", lon_med) or lon_med)
+        dist_deg = math.sqrt((lat - lat_med) ** 2 + (lon - lon_med) ** 2)
+        dist_norm = float(min(1.0, dist_deg / 0.18))
+
+        pop_raw = float(pop_counts.get(vid, 1))
+        pop_norm = float(min(1.0, math.log1p(pop_raw) / max(1e-6, max_log_pop)))
+
+        # Deterministic venue-specific micro-jitter from MD5 hash (independent of PYTHONHASHSEED & label)
+        v_hash = (int(hashlib.md5(str(vid).encode("utf-8")).hexdigest()[:8], 16) % 1000) / 1000.0
+        price_norm = float(np.clip(priors["price_base"] + (v_hash - 0.5) * 0.14, 0.05, 0.98))
+        rating_norm = float(np.clip(0.55 + 0.30 * pop_norm + (v_hash - 0.5) * 0.12, 0.25, 0.98))
+        is_indoor = priors["is_indoor"]
+        is_hidden = 1.0 if pop_norm <= 0.35 else 0.0
+        eco_score = float(np.clip(priors["eco_base"] + 0.08 * is_hidden + (0.5 - v_hash) * 0.08, 0.15, 0.98))
+        sme_share = float(np.clip(priors["sme_base"] + 0.10 * is_hidden - 0.12 * pop_norm + (v_hash - 0.5) * 0.08, 0.15, 0.96))
+
+        venue_feats[idx] = [
+            dist_norm, price_norm, pop_norm, rating_norm,
+            is_indoor, is_hidden, eco_score, sme_share,
+        ]
+        venue_records.append({
+            "venue_idx": idx,
+            "venue_id": str(vid),
+            "name": str(row.get("name", f"Venue {idx}")),
+            "category": cat,
+            "city": str(row.get("venue_city", city_name)),
+            "price_norm": round(price_norm, 4),
+            "pop_norm": round(pop_norm, 4),
+            "eco_score": round(eco_score, 4),
+            "sme_share": round(sme_share, 4),
+            "is_hidden": bool(is_hidden > 0.5),
+            "is_indoor": bool(is_indoor > 0.5),
+        })
+
+    # Build chronological per-user trajectories
+    work["v_idx"] = work["venue_id"].map(vid_to_idx)
+    user_seq: Dict[Any, List[int]] = {}
+    user_cats: Dict[Any, set] = {}
+    for uid, grp in work.groupby("user_id", sort=False):
+        seq = [int(v) for v in grp["v_idx"].tolist() if pd.notna(v)]
+        # Deduplicate adjacent duplicates while preserving chronological order
+        dedup = []
+        for v in seq:
+            if not dedup or dedup[-1] != v:
+                dedup.append(v)
+        if len(dedup) >= 6:
+            user_seq[uid] = dedup
+            user_cats[uid] = set(grp["venue_category"].astype(str).tolist())
+
+    eligible_users = sorted(user_seq.keys(), key=lambda x: str(x))
+    if len(eligible_users) < 6:
+        # Relax minimum length for sparser cities
+        user_seq = {}
+        user_cats = {}
+        for uid, grp in work.groupby("user_id", sort=False):
+            seq = list(dict.fromkeys(int(v) for v in grp["v_idx"].tolist() if pd.notna(v)))
+            if len(seq) >= 3:
+                user_seq[uid] = seq
+                user_cats[uid] = set(grp["venue_category"].astype(str).tolist())
+        eligible_users = sorted(user_seq.keys(), key=lambda x: str(x))
+
+    # Index category -> users sharing affinity so groups represent realistic co-travelers
+    cat_to_users: Dict[str, List[Any]] = {}
+    for uid in eligible_users:
+        for c in user_cats[uid]:
+            cat_to_users.setdefault(c, []).append(uid)
+
+    # Split each user's final check-ins as strict future targets and earlier check-ins as history
+    user_history_pool: Dict[Any, List[int]] = {}
+    user_future_pool: Dict[Any, List[int]] = {}
+    for uid in eligible_users:
+        seq = user_seq[uid]
+        split_at = max(2, int(len(seq) * 0.72))
+        hist = seq[:split_at]
+        fut = [v for v in seq[split_at:] if v not in hist]
+        if not fut:
+            fut = [seq[-1]]
+            hist = seq[:-1]
+        user_history_pool[uid] = hist[-20:]
+        user_future_pool[uid] = fut
+
+    groups: List[Dict[str, Any]] = []
+    # Reverse index: venue -> users who have that venue in their future pool (co-interest groups)
+    fut_venue_to_users: Dict[int, List[Any]] = {}
+    for uid, futs in user_future_pool.items():
+        for v in futs:
+            fut_venue_to_users.setdefault(v, []).append(uid)
+
+    popular_shared_targets = [v for v, us in fut_venue_to_users.items() if len(us) >= 2]
+    all_users_arr = np.array(eligible_users, dtype=object)
+
+    for g_idx in range(num_groups):
+        # Cycle group sizes evenly over 2, 3, 4, 5 for clean scaling experiments
+        g_size = 2 + (g_idx % 4)
+
+        if popular_shared_targets and g_idx % 3 != 2:
+            anchor_target = int(popular_shared_targets[rng.randint(len(popular_shared_targets))])
+            co_users = fut_venue_to_users[anchor_target]
+            if len(co_users) >= g_size:
+                chosen_idx = rng.choice(len(co_users), size=g_size, replace=False)
+                members = [co_users[i] for i in chosen_idx]
+            else:
+                members = list(co_users)
+                # Fill remaining members with shared category taste
+                anchor_cat = venue_records[anchor_target]["category"]
+                pool = [u for u in cat_to_users.get(anchor_cat, eligible_users) if u not in members]
+                while len(members) < g_size and len(pool) > 0:
+                    pick = pool.pop(rng.randint(len(pool)))
+                    members.append(pick)
+                while len(members) < g_size:
+                    cand = all_users_arr[rng.randint(len(all_users_arr))]
+                    if cand not in members:
+                        members.append(cand)
+        else:
+            lead = all_users_arr[rng.randint(len(all_users_arr))]
+            members = [lead]
+            lead_cats = sorted(user_cats[lead])
+            shared_pool = []
+            if lead_cats:
+                shared_pool = [u for u in cat_to_users.get(lead_cats[rng.randint(len(lead_cats))], []) if u != lead]
+            while len(members) < g_size and shared_pool:
+                pick = shared_pool.pop(rng.randint(len(shared_pool)))
+                if pick not in members:
+                    members.append(pick)
+            while len(members) < g_size:
+                cand = all_users_arr[rng.randint(len(all_users_arr))]
+                if cand not in members:
+                    members.append(cand)
+            anchor_target = int(user_future_pool[lead][rng.randint(len(user_future_pool[lead]))])
+
+        # Collect strict future held-out positive targets for the group (1 to 3 items)
+        pos_targets_set = {anchor_target}
+        for u in members:
+            for fv in user_future_pool[u][:2]:
+                if len(pos_targets_set) < 3:
+                    pos_targets_set.add(int(fv))
+        pos_targets = sorted(pos_targets_set)
+        pos_set = set(pos_targets)
+
+        # Zero-leakage member histories: explicitly exclude pos_targets
+        member_histories: List[List[int]] = []
+        member_budgets: List[float] = []
+        user_features: List[List[float]] = []
+        for m_i, u in enumerate(members):
+            clean_hist = [v for v in user_history_pool[u] if v not in pos_set]
+            if not clean_hist:
+                clean_hist = [v for v in user_seq[u][:2] if v not in pos_set] or [0]
+            member_histories.append(clean_hist)
+
+            # Member budget tier derived from past visited price quantiles + diversity
+            past_prices = [float(venue_feats[v, 1]) for v in clean_hist]
+            mean_past_p = float(np.mean(past_prices))
+            # Deliberately include heterogeneous budget mix across group members
+            budget = float(np.clip(mean_past_p + (0.18 if m_i % 3 == 2 else (-0.15 if m_i % 3 == 0 else 0.0)), 0.18, 0.94))
+            member_budgets.append(round(budget, 4))
+
+            hist_div = float(min(1.0, len(set(venue_records[v]["category"] for v in clean_hist)) / 6.0))
+            flex = float(np.clip(0.38 + 0.45 * budget + 0.15 * hist_div, 0.20, 0.95))
+            user_features.append([budget, hist_div, flex])
+
+        groups.append({
+            "group_id": f"{_slugify_city(city_name)}_grp_{g_idx:04d}",
+            "city": city_name,
+            "group_size": len(members),
+            "members": [str(u) for u in members],
+            "member_histories": member_histories,
+            "member_budgets": member_budgets,
+            "user_features": user_features,
+            "pos_targets": pos_targets,
+        })
+
+    return {
+        "city": city_name,
+        "num_rows": int(len(work)),
+        "num_users": int(len(eligible_users)),
+        "num_venues": int(num_venues),
+        "venues": venue_records,
+        "venue_feats": venue_feats,
+        "groups": groups,
+    }
+
+
+def build_sydney_group_benchmark(df: pd.DataFrame, num_groups: int = 850, seed: int = 42) -> Dict[str, Any]:
+    """Backward-compatible helper building the Sydney group benchmark."""
+    return build_city_group_benchmark(df, num_groups=num_groups, seed=seed, city_name="Sydney")
