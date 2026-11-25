@@ -63,8 +63,16 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
         </h2>
         <p style={{ fontSize: "13px", color: "#D6D1C7", margin: 0, lineHeight: 1.55 }}>
           Active Model: <strong>{fairness.model_used || "TripSense-FairNet"}</strong> • Backbone:{" "}
-          <span className="font-mono-num">{mlMetrics?.backbone || "SigLIP / CLIP Multimodal"}</span> • Dataset:{" "}
+          <span className="font-mono-num">{mlMetrics?.backbone || "openai/clip-vit-base-patch32"}</span> • Dataset:{" "}
           <strong>{mlMetrics?.datasets?.group_poi_benchmark || "Massive-STEPS-Sydney"}</strong> & <strong>TravelPlanner</strong>.
+          {mlMetrics?.multi_seed_stability && (
+            <>
+              {" "}• 3-Seed Mean NDCG@10:{" "}
+              <strong className="font-mono-num">
+                {mlMetrics.multi_seed_stability.ndcg10_mean} ± {mlMetrics.multi_seed_stability.ndcg10_std}
+              </strong>
+            </>
+          )}
         </p>
       </div>
 

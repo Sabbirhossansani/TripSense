@@ -16,11 +16,14 @@ import BookingDrawer from "./components/BookingDrawer";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import EditorialFooter from "./components/EditorialFooter";
 import FloatingQuickActions from "./components/FloatingQuickActions";
+import BackendConnectModal from "./components/BackendConnectModal";
+import { ScrollProgressRail } from "./components/MotionPrimitives";
 import {
   fetchDestinations,
   generateGroupPlan,
   replanWeather,
   vetoSpot,
+  probeBackendConnection,
   saveRoomState,
   loadExpenses,
   saveExpenses,
@@ -70,6 +73,14 @@ export default function App() {
   const [isSolverActive, setIsSolverActive] = useState(false);
   const [isReelOpen, setIsReelOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const [connectionState, setConnectionState] = useState({
+    mode: "demo",
+    url: "built-in-demo",
+    latencyMs: 1,
+    backbone: "Instant Grounded Engine",
+    fairnetLoaded: false,
+  });
   const [bookingSpot, setBookingSpot] = useState(null);
   const [vetoNotification, setVetoNotification] = useState(null);
 
@@ -153,6 +164,22 @@ export default function App() {
     return () => {
       window.removeEventListener("online", on);
       window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const check = () => {
+      probeBackendConnection().then((status) => {
+        if (!active) return;
+        setConnectionState(status);
+      });
+    };
+    check();
+    const timer = setInterval(check, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
     };
   }, []);
 
@@ -408,6 +435,7 @@ export default function App() {
 
   return (
     <div className="tripsense-app">
+      <ScrollProgressRail />
       {showLoginModal && (
         <LoginScreen onLogin={handleUserLogin} onClose={() => setShowLoginModal(false)} />
       )}
@@ -461,6 +489,18 @@ export default function App() {
         availableEcoPoints={plan?.eco_summary?.total_eco_points || 180}
       />
 
+      <BackendConnectModal
+        isOpen={isConnectOpen}
+        onClose={() => setIsConnectOpen(false)}
+        connectionState={connectionState}
+        onConnectionUpdated={(st) => {
+          setConnectionState(st);
+          if (st.mode === "live") {
+            handleGeneratePlan();
+          }
+        }}
+      />
+
       <Navbar
         city={city}
         startDate={startDate}
@@ -481,6 +521,8 @@ export default function App() {
         onOpenSetupWizard={() => setShowSetupWizard(true)}
         onOpenReel={() => setIsReelOpen(true)}
         onOpenCopilot={() => setIsCopilotOpen(true)}
+        connectionState={connectionState}
+        onOpenConnect={() => setIsConnectOpen(true)}
         lang={lang}
         setLang={setLang}
         currency={currency}
@@ -530,6 +572,8 @@ export default function App() {
             onOpenSwipe={() => setShowTasteMatch(true)}
             onOpenLogin={() => setShowLoginModal(true)}
             onOpenMlLab={() => setActiveTab("fairness")}
+            connectionState={connectionState}
+            onOpenConnect={() => setIsConnectOpen(true)}
             vetoNotification={vetoNotification}
             lang={lang}
             currency={currency}

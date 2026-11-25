@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Compass, Calendar, Wifi, WifiOff, CloudSun, LogOut, Sparkles, SlidersHorizontal, Film, Bot } from "lucide-react";
+import { motion } from "framer-motion";
+import { Compass, Calendar, Wifi, WifiOff, Cpu, LogOut, Sparkles, SlidersHorizontal, Film, Bot } from "lucide-react";
 
 function computeCountdownTicker(dateStr) {
   try {
@@ -37,6 +38,8 @@ export default function Navbar({
   onOpenSetupWizard,
   onOpenReel,
   onOpenCopilot,
+  connectionState,
+  onOpenConnect,
   lang = "EN",
   setLang,
   currency = "BDT",
@@ -148,22 +151,40 @@ export default function Navbar({
             <span>{city} • {formatDate(startDate)} – {formatDate(endDate)} ({days}d)</span>
           </button>
 
-          <span
+          <button
+            type="button"
+            onClick={onOpenConnect}
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "4px",
-              background: "var(--alpine-moss-soft)",
-              color: "var(--alpine-moss)",
-              padding: "5px 10px",
+              gap: "6px",
+              background: connectionState?.mode === "live" ? "var(--alpine-moss-soft)" : "var(--brass-soft)",
+              color: connectionState?.mode === "live" ? "var(--alpine-moss)" : "#7B5618",
+              padding: "5px 11px",
               borderRadius: "999px",
               fontSize: "11px",
+              fontWeight: 800,
+              border: `1px solid ${connectionState?.mode === "live" ? "#B8D3C8" : "#E5C88B"}`,
+              cursor: "pointer",
+            }}
+            title="Configure Remote AI / Free Cloud or Laptop Tunnel"
+          >
+            <Cpu size={13} />
+            <span>
+              {connectionState?.mode === "live"
+                ? `Live AI (${connectionState.latencyMs || 8}ms)`
+                : "Demo Mode • Connect AI"}
+            </span>
+          </button>
+          <span
+            className="font-mono-num"
+            style={{
+              fontSize: "11px",
               fontWeight: 700,
-              border: "1px solid #C5D9CE",
+              color: "var(--granite-600)",
             }}
           >
-            <CloudSun size={13} />
-            <span>{currentWeather} • {countdownTicker}</span>
+            {currentWeather} • {countdownTicker}
           </span>
         </div>
 
@@ -371,19 +392,34 @@ export default function Navbar({
               type="button"
               onClick={() => setActiveTab(tab.id)}
               style={{
+                position: "relative",
                 background: "transparent",
                 border: "none",
-                borderBottom: isActive ? "3px solid var(--safety-orange)" : "3px solid transparent",
-                padding: "10px 2px",
+                padding: "11px 2px",
                 fontSize: "13px",
                 fontWeight: isActive ? 800 : 600,
                 color: isActive ? "var(--granite-950)" : "var(--granite-600)",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
-                transition: "all 0.2s ease",
+                transition: "color 0.2s ease",
               }}
             >
               {tab.label}
+              {isActive && (
+                <motion.div
+                  layoutId="activeNavTab"
+                  transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: "3px",
+                    borderRadius: "999px 999px 0 0",
+                    background: "var(--safety-orange)",
+                  }}
+                />
+              )}
             </button>
           );
         })}

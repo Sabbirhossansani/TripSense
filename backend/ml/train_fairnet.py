@@ -24,6 +24,7 @@ import pickle
 from typing import Optional
 import numpy as np
 import torch
+import torch.nn.functional as F
 from scipy.stats import wilcoxon
 from sklearn.metrics import ndcg_score
 import lightgbm as lgb
@@ -112,8 +113,9 @@ def train_pytorch_fairnet(
     fairness_weight: float = 0.35,
     misery_weight: float = 0.30,
     eco_weight: float = 0.10,
-    epochs: int = 28,
+    epochs: int = 18,
     batch_size: int = 64,
+    num_neg: int = 8,
     seed: int = 42,
 ):
     torch.manual_seed(seed)
@@ -125,7 +127,7 @@ def train_pytorch_fairnet(
 
     emb_dim = venue_embs.shape[1]
     n_venues = len(venue_embs)
-    top_pop_ids = np.argsort(-popularity)[: min(250, n_venues)] if popularity is not None else None
+    top_pop_ids = np.argsort(-popularity)[: min(300, n_venues)] if popularity is not None else None
     v_emb_t = torch.from_numpy(venue_embs).to(device)
     v_feat_t = torch.from_numpy(venue_features).to(device)
 
@@ -135,18 +137,18 @@ def train_pytorch_fairnet(
         user_feat_dim=3,
         hidden_dim=128,
         num_heads=4,
-        dropout=0.15,
+        dropout=0.20,
     ).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=8e-4, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1.2e-3, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    # Flatten (group_idx, pos_venue_idx) pairs for training
     train_pairs = [(gi, pid) for gi, plist in enumerate(pos_tr) for pid in plist]
     n_train = len(train_pairs)
 
     history_losses = []
-    best_val_score = -1.0
+    best_val_ndcg = -1.0
+    best_val_hit = 0.0
     best_state = None
 
     for ep in range(1, epochs + 1):
@@ -159,42 +161,63 @@ def train_pytorch_fairnet(
             batch = train_pairs[start : start + batch_size]
             g_ids = [b[0] for b in batch]
             p_ids = np.array([b[1] for b in batch], dtype=np.int64)
-            # Mix 50% hard popularity negatives and 50% random negatives
-            neg_ids = []
-            for gi in g_ids:
+            bsz = len(g_ids)
+            half_neg = num_neg // 2
+
+            # Mix half hard popularity negatives + half uniform negatives per positive
+            neg_mat = np.empty((bsz, num_neg), dtype=np.int64)
+            for row_i, gi in enumerate(g_ids):
                 pset = set(pos_tr[gi])
-                if top_pop_ids is not None and rng.random() < 0.5:
-                    nid = int(rng.choice(top_pop_ids))
-                    while nid in pset:
+                for k in range(num_neg):
+                    if top_pop_ids is not None and k < half_neg:
                         nid = int(rng.choice(top_pop_ids))
-                else:
-                    nid = int(rng.integers(0, n_venues))
-                    while nid in pset:
+                        while nid in pset:
+                            nid = int(rng.choice(top_pop_ids))
+                    else:
                         nid = int(rng.integers(0, n_venues))
-                neg_ids.append(nid)
-            neg_ids = np.array(neg_ids, dtype=np.int64)
+                        while nid in pset:
+                            nid = int(rng.integers(0, n_venues))
+                    neg_mat[row_i, k] = nid
 
             ue = torch.from_numpy(u_embs_tr[g_ids]).to(device)
             uf = torch.from_numpy(u_feats_tr[g_ids]).to(device)
             um = torch.from_numpy(u_masks_tr[g_ids]).to(device)
             pe_pos = v_emb_t[p_ids]
             pf_pos = v_feat_t[p_ids]
-            pe_neg = v_emb_t[neg_ids]
-            pf_neg = v_feat_t[neg_ids]
 
             pos_g, pos_m, _ = model(ue, uf, um, pe_pos, pf_pos)
-            neg_g, _, _ = model(ue, uf, um, pe_neg, pf_neg)
 
-            loss, _ = fairness_regularized_bpr_loss(
-                pos_g,
-                pos_m,
-                neg_g,
-                um,
-                pf_pos[:, 6],  # eco_score feature
-                fairness_weight=fairness_weight,
-                misery_weight=misery_weight,
-                eco_weight=eco_weight,
+            # Flatten (B * K) negatives cleanly through FairNet for sampled InfoNCE
+            m_slots = ue.shape[1]
+            ue_neg = ue.unsqueeze(1).expand(bsz, num_neg, m_slots, emb_dim).reshape(bsz * num_neg, m_slots, emb_dim)
+            uf_neg = uf.unsqueeze(1).expand(bsz, num_neg, m_slots, 3).reshape(bsz * num_neg, m_slots, 3)
+            um_neg = um.unsqueeze(1).expand(bsz, num_neg, m_slots).reshape(bsz * num_neg, m_slots)
+            neg_flat = neg_mat.reshape(-1)
+            neg_g_flat, _, _ = model(ue_neg, uf_neg, um_neg, v_emb_t[neg_flat], v_feat_t[neg_flat])
+            neg_g = neg_g_flat.view(bsz, num_neg)
+
+            # Multi-Negative InfoNCE ranking objective + Fairness/Misery/Eco regularization
+            infonce_logits = torch.cat([pos_g.unsqueeze(1), neg_g], dim=1) * 8.0
+            ranking_loss = F.cross_entropy(
+                infonce_logits, torch.zeros(bsz, dtype=torch.long, device=device)
             )
+            if fairness_weight > 0.0 or misery_weight > 0.0 or eco_weight > 0.0:
+                mask_f = um.float()
+                counts = mask_f.sum(dim=-1, keepdim=True).clamp(min=1.0)
+                mean_u = (pos_m * mask_f).sum(dim=-1, keepdim=True) / counts
+                var_loss = ((((pos_m - mean_u) ** 2) * mask_f).sum(dim=-1) / counts.squeeze(-1)).mean()
+                masked_pos = pos_m.masked_fill(~um, 1.0)
+                min_u, _ = masked_pos.min(dim=-1)
+                misery_loss = F.relu(0.60 - min_u).mean()
+                eco_loss = (1.0 - pf_pos[:, 6]).mean()
+                loss = (
+                    ranking_loss
+                    + fairness_weight * var_loss
+                    + misery_weight * misery_loss
+                    + eco_weight * eco_loss
+                )
+            else:
+                loss = ranking_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -208,11 +231,11 @@ def train_pytorch_fairnet(
         avg_loss = ep_loss / max(1, steps)
         history_losses.append(round(avg_loss, 4))
 
-        # Validation Hit@10 check every 4 epochs (chunked to keep RTX 3050 fast)
-        if ep % 4 == 0 or ep == epochs:
+        # Validation NDCG@10 & Hit@10 check every 3 epochs
+        if ep % 3 == 0 or ep == epochs:
             model.eval()
             with torch.no_grad():
-                hits = []
+                hits, ndcgs = [], []
                 for gi in range(len(pos_va)):
                     gt = set(pos_va[gi])
                     ue_base = torch.from_numpy(u_embs_va[gi : gi + 1]).to(device)
@@ -231,18 +254,73 @@ def train_pytorch_fairnet(
                         )
                         chunk_scores.append(g_sc)
                     all_sc = torch.cat(chunk_scores, dim=0)
+                    sc_np = all_sc.cpu().numpy()
                     top10 = set(torch.topk(all_sc, k=min(10, n_venues)).indices.cpu().tolist())
                     hits.append(1.0 if (gt & top10) else 0.0)
+                    y_va = np.array([[1.0 if v in gt else 0.0 for v in range(n_venues)]])
+                    ndcgs.append(float(ndcg_score(y_va, [sc_np], k=10)))
                 val_hit = float(np.mean(hits)) if hits else 0.0
-                print(f"  [Epoch {ep:02d}/{epochs}] loss={avg_loss:.4f} val_hit@10={val_hit:.4f}", flush=True)
-                if val_hit >= best_val_score:
-                    best_val_score = val_hit
+                val_ndcg = float(np.mean(ndcgs)) if ndcgs else 0.0
+                print(
+                    f"  [Epoch {ep:02d}/{epochs}] loss={avg_loss:.4f} val_ndcg@10={val_ndcg:.4f} val_hit@10={val_hit:.4f}",
+                    flush=True,
+                )
+                if val_ndcg >= best_val_ndcg:
+                    best_val_ndcg = val_ndcg
+                    best_val_hit = val_hit
                     best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
 
     if best_state is not None:
         model.load_state_dict({k: v.to(device) for k, v in best_state.items()})
     model.eval()
-    return model, history_losses, round(best_val_score, 4)
+    return model, history_losses, round(best_val_hit, 4)
+
+
+def evaluate_fairnet_single_seed(
+    test_data: tuple,
+    venue_embs: np.ndarray,
+    venue_features: np.ndarray,
+    model: TripSenseFairNet,
+    device: torch.device,
+) -> dict:
+    """Evaluates one trained FairNet checkpoint on all test groups (NDCG@10, Hit@10, Gini)."""
+    u_embs_te, u_feats_te, u_masks_te, pos_te, _ = test_data
+    n_venues = len(venue_embs)
+    v_emb_t = torch.from_numpy(venue_embs).to(device)
+    v_feat_t = torch.from_numpy(venue_features).to(device)
+    ndcgs, hits, ginis = [], [], []
+    with torch.no_grad():
+        for gi in range(len(pos_te)):
+            gt_set = set(pos_te[gi])
+            valid_ue = u_embs_te[gi][u_masks_te[gi]]
+            member_true_utils = np.clip(0.55 + 0.45 * (venue_embs @ valid_ue.T), 0.05, 0.99)
+            ue_b = torch.from_numpy(u_embs_te[gi : gi + 1]).to(device)
+            uf_b = torch.from_numpy(u_feats_te[gi : gi + 1]).to(device)
+            um_b = torch.from_numpy(u_masks_te[gi : gi + 1]).to(device)
+            parts = []
+            for v_start in range(0, n_venues, 512):
+                v_end = min(n_venues, v_start + 512)
+                cs = v_end - v_start
+                parts.append(
+                    model(
+                        ue_b.expand(cs, -1, -1),
+                        uf_b.expand(cs, -1, -1),
+                        um_b.expand(cs, -1),
+                        v_emb_t[v_start:v_end],
+                        v_feat_t[v_start:v_end],
+                    )[0].cpu().numpy()
+                )
+            scores = np.concatenate(parts, axis=0)
+            top10 = np.argsort(-scores)[:10]
+            y_true = np.array([[1.0 if v in gt_set else 0.0 for v in range(n_venues)]])
+            ndcgs.append(float(ndcg_score(y_true, [scores], k=10)))
+            hits.append(1.0 if (set(top10.tolist()) & gt_set) else 0.0)
+            ginis.append(compute_gini(member_true_utils[top10].mean(axis=0).tolist()))
+    return {
+        "ndcg10": float(np.mean(ndcgs)),
+        "hit10": float(np.mean(hits) * 100.0),
+        "gini_index": float(np.mean(ginis)),
+    }
 
 
 def build_tabular_pair_features(u_embs, u_feats, u_masks, g_idx, v_ids, venue_embs, venue_features):
@@ -421,19 +499,44 @@ def main():
     val_data = build_group_tensors(bench["val_groups"], venue_embs, bench["venue_features"])
     test_data = build_group_tensors(bench["test_groups"], venue_embs, bench["venue_features"])
 
-    # 3. Train TripSense-FairNet (Full) & Ablation (w/o Fairness Loss)
-    print("[Pipeline] Training TripSense-FairNet (Full Multi-Objective Model)...", flush=True)
+    # 3. Train TripSense-FairNet across 3 seeds (42, 102, 2026) for Q1 stability + Ablation
+    print("[Pipeline] Training TripSense-FairNet (InfoNCE + Multi-Objective, Seed=42)...", flush=True)
     fairnet_full, loss_curve_full, val_hit_full = train_pytorch_fairnet(
         train_data, val_data, venue_embs, bench["venue_features"], device,
         popularity=bench["popularity"],
-        fairness_weight=0.35, misery_weight=0.30, eco_weight=0.10, epochs=20, seed=42
+        fairness_weight=0.35, misery_weight=0.30, eco_weight=0.10, epochs=18, num_neg=8, seed=42
     )
+
+    seed_list = [42, 102, 2026]
+    seed_metrics = [
+        evaluate_fairnet_single_seed(test_data, venue_embs, bench["venue_features"], fairnet_full, device)
+    ]
+    for s in seed_list[1:]:
+        print(f"[Pipeline] Multi-Seed Stability Run (Seed={s})...", flush=True)
+        m_seed, _, _ = train_pytorch_fairnet(
+            train_data, val_data, venue_embs, bench["venue_features"], device,
+            popularity=bench["popularity"],
+            fairness_weight=0.35, misery_weight=0.30, eco_weight=0.10, epochs=18, num_neg=8, seed=s
+        )
+        seed_metrics.append(
+            evaluate_fairnet_single_seed(test_data, venue_embs, bench["venue_features"], m_seed, device)
+        )
+
+    multi_seed_stability = {
+        "seeds": seed_list,
+        "ndcg10_mean": round(float(np.mean([m["ndcg10"] for m in seed_metrics])), 4),
+        "ndcg10_std": round(float(np.std([m["ndcg10"] for m in seed_metrics])), 4),
+        "hit10_mean": round(float(np.mean([m["hit10"] for m in seed_metrics])), 2),
+        "hit10_std": round(float(np.std([m["hit10"] for m in seed_metrics])), 2),
+        "gini_mean": round(float(np.mean([m["gini_index"] for m in seed_metrics])), 4),
+        "gini_std": round(float(np.std([m["gini_index"] for m in seed_metrics])), 4),
+    }
 
     print("[Pipeline] Training FairNet Ablation (w/o Fairness Loss)...", flush=True)
     fairnet_nofair, _, val_hit_nofair = train_pytorch_fairnet(
         train_data, val_data, venue_embs, bench["venue_features"], device,
         popularity=bench["popularity"],
-        fairness_weight=0.0, misery_weight=0.0, eco_weight=0.0, epochs=20, seed=42
+        fairness_weight=0.0, misery_weight=0.0, eco_weight=0.0, epochs=18, num_neg=8, seed=42
     )
 
     # Save best FairNet checkpoint
@@ -547,6 +650,7 @@ def main():
             "total_parameters": int(sum(p.numel() for p in fairnet_full.parameters())),
         },
         "group_consensus_comparison": group_comparison,
+        "multi_seed_stability": multi_seed_stability,
         "shap_feature_importance": shap_importances,
         "active_swipe_learning_curve": active_swipe_curve,
         "travelplanner_rag_evaluation": travelplanner_eval,

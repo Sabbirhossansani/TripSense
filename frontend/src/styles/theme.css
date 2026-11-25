@@ -1,35 +1,34 @@
-/* TripSense Boutique Editorial Adventure/Travel Design System
- * Palette: Granite Gray (#1A1D1C), Safety Orange (#E85D2A), Alpine Moss (#25463B), Chalk White (#F6F4EF)
- * Zero generic SaaS indigo/cyan slop.
+/* TripSense November 2026 Quiet-Luxury Editorial Adventure Design System
+ * Palette: Dune & Terracotta + Mineral Pine (Warm Alabaster #F7F4EE, Deep Obsidian #121715, Terracotta #D94E28, Mineral Pine #1F4B3E)
  */
 
 :root {
-  --bg-chalk: #F6F4EF;
-  --bg-surface: #FAF9F6;
+  --bg-chalk: #F7F4EE;
+  --bg-surface: #EFEAE0;
   --bg-card: #FFFFFF;
-  --granite-950: #1A1D1C;
-  --granite-800: #2A2F2D;
-  --granite-600: #59615E;
-  --stone-border: #E2DDD3;
-  --stone-muted: #EFECE5;
+  --granite-950: #121715;
+  --granite-800: #232B28;
+  --granite-600: #57605C;
+  --stone-border: #DFD8CB;
+  --stone-muted: #ECE7DC;
 
-  --safety-orange: #E85D2A;
-  --safety-orange-hover: #CC4A1B;
-  --safety-orange-soft: #FFF0EA;
+  --safety-orange: #D94E28;
+  --safety-orange-hover: #B93D1B;
+  --safety-orange-soft: #FDF0EB;
 
-  --alpine-moss: #25463B;
-  --alpine-moss-mid: #386655;
-  --alpine-moss-soft: #E8F0EC;
+  --alpine-moss: #1F4B3E;
+  --alpine-moss-mid: #2F6A57;
+  --alpine-moss-soft: #E6F0EC;
 
-  --brass-ochre: #C9933B;
-  --brass-soft: #FBF5E8;
+  --brass-ochre: #B8863B;
+  --brass-soft: #FBF4E6;
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-arch: 'Syne', 'Plus Jakarta Sans', sans-serif;
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *, *::before, *::after {
@@ -67,50 +66,62 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Subtle Frosted Glassmorphism */
+/* Quiet-Luxury Warm Alabaster Glass & Architectural Elevation */
 .glass-panel {
-  background: rgba(250, 249, 246, 0.86);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 10px 30px rgba(26, 29, 28, 0.06);
+  background: rgba(247, 244, 238, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 12px 32px rgba(18, 23, 21, 0.05);
 }
 
 .glass-dark {
-  background: rgba(26, 29, 28, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.25);
+  background: rgba(18, 23, 21, 0.84);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.editorial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--stone-border);
+  border-radius: 24px;
+  box-shadow: 0 2px 6px rgba(18, 23, 21, 0.025), 0 18px 44px rgba(18, 23, 21, 0.055);
+}
+
+.editorial-grain {
+  background-image: radial-gradient(rgba(18, 23, 21, 0.032) 1px, transparent 0);
+  background-size: 22px 22px;
 }
 
 /* Tactile Neu-Depth exclusively for segmented controls & toggles */
 .neu-control {
-  background: #EFECE5;
-  border: 1px solid #DFD9CE;
+  background: #ECE7DC;
+  border: 1px solid #DCD4C5;
   border-radius: 14px;
   padding: 3px;
-  box-shadow: inset 0 2px 4px rgba(26, 29, 28, 0.07), 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 2px 4px rgba(18, 23, 21, 0.06), 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .neu-control-item-active {
   background: #FFFFFF;
   color: var(--granite-950);
-  box-shadow: 0 2px 6px rgba(26, 29, 28, 0.1), 0 1px 2px rgba(26, 29, 28, 0.06);
+  box-shadow: 0 2px 8px rgba(18, 23, 21, 0.09), 0 1px 2px rgba(18, 23, 21, 0.05);
 }
 
 /* Liquid Pill Button with wave fill on hover */
 .liquid-btn {
   position: relative;
   overflow: hidden;
-  transition: transform 0.25s var(--ease-editorial), box-shadow 0.25s var(--ease-editorial);
+  transition: transform 0.28s var(--ease-editorial), box-shadow 0.28s var(--ease-editorial);
 }
 
 .liquid-btn::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.15);
   transform: translateY(100%) scale(1.2);
   border-radius: 45%;
   transition: transform 0.45s var(--ease-editorial);
@@ -127,7 +138,7 @@ html, body {
 
 /* Shimmer Skeleton Placeholder (Zero CLS) */
 .shimmer-skeleton {
-  background: linear-gradient(90deg, #EFECE5 25%, #FAF9F6 50%, #EFECE5 75%);
+  background: linear-gradient(90deg, #ECE7DC 25%, #F7F4EE 50%, #ECE7DC 75%);
   background-size: 200% 100%;
   animation: shimmerSweep 1.6s infinite linear;
 }
@@ -188,23 +199,30 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(250, 249, 246, 0.94);
+  background: rgba(247, 244, 238, 0.94);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--stone-border);
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
   z-index: 95;
-  box-shadow: 0 -6px 24px rgba(26, 29, 28, 0.08);
+  box-shadow: 0 -6px 24px rgba(18, 23, 21, 0.08);
   justify-content: space-around;
   align-items: center;
+}
+
+.desktop-only-fab {
+  display: flex;
 }
 
 @media (max-width: 820px) {
   .mobile-bottom-dock {
     display: flex;
   }
+  .desktop-only-fab {
+    display: none !important;
+  }
   .main-content {
-    padding: 14px 14px calc(92px + env(safe-area-inset-bottom)) 14px;
+    padding: 14px 14px calc(94px + env(safe-area-inset-bottom)) 14px;
   }
 }
 
@@ -212,12 +230,12 @@ html, body {
 .leaflet-container {
   font-family: var(--font-sans) !important;
   z-index: 10 !important;
-  background: #EAE6DC !important;
+  background: #EAE5DA !important;
 }
 
 .leaflet-popup-content-wrapper {
   border-radius: 14px !important;
-  box-shadow: 0 12px 28px rgba(26, 29, 28, 0.16) !important;
+  box-shadow: 0 12px 28px rgba(18, 23, 21, 0.16) !important;
   border: 1px solid var(--stone-border);
 }
 
@@ -227,11 +245,11 @@ html, body {
 }
 
 .spot-card {
-  transition: transform 0.25s var(--ease-editorial), box-shadow 0.25s var(--ease-editorial), border-color 0.25s ease;
+  transition: transform 0.28s var(--ease-editorial), box-shadow 0.28s var(--ease-editorial), border-color 0.25s ease;
 }
 
 .spot-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(26, 29, 28, 0.09) !important;
-  border-color: #CFC7B8 !important;
+  box-shadow: 0 14px 30px rgba(18, 23, 21, 0.085) !important;
+  border-color: #CFC5B4 !important;
 }

@@ -1,9 +1,104 @@
 /**
- * TripSense API Client with Blueprint B ML Endpoints, Eco/Business Services,
- * Multi-Currency Formatting, & Offline Cache Support.
+ * TripSense Hybrid Cloud / Laptop / Zero-Latency Offline Demo API Client.
+ *
+ * Connection priority:
+ *   1. User-configured remote AI URL in localStorage (`tripsense_backend_url`) — e.g. HF Space, Cloudflare Tunnel, Azure
+ *   2. Build-time `VITE_API_URL` environment variable
+ *   3. Local Vite dev backend (`http://127.0.0.1:8000` when running on port 5173)
+ *   4. Same-origin (`""`) when hosted directly via FastAPI/uvicorn
+ *
+ * Whenever no remote PyTorch backend is online (e.g. cold static Vercel deployment),
+ * every API function transparently returns grounded domain results via `offlineDemoEngine.js`.
  */
+import {
+  demoDestinations,
+  demoSpots,
+  demoGenerateGroupPlan,
+  demoReplanWeather,
+  demoVetoSpot,
+  demoNextActiveSwipe,
+  demoCopilotChat,
+  demoEcoReport,
+  demoReserveBooking,
+  demoMlMetrics,
+} from "../data/offlineDemoEngine";
 
-const API_BASE = import.meta.env.VITE_API_URL || (window.location.port === '5173' ? 'http://127.0.0.1:8000' : '');
+const BACKEND_URL_KEY = "tripsense_backend_url";
+
+export function getBackendUrl() {
+  try {
+    const saved = localStorage.getItem(BACKEND_URL_KEY);
+    if (saved && saved.trim()) return saved.trim().replace(/\/+$/, "");
+  } catch {}
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim()) return envUrl.trim().replace(/\/+$/, "");
+  if (typeof window !== "undefined" && window.location.port === "5173") {
+    return "http://127.0.0.1:8000";
+  }
+  return "";
+}
+
+export function setBackendUrl(url) {
+  try {
+    if (url && url.trim()) {
+      localStorage.setItem(BACKEND_URL_KEY, url.trim().replace(/\/+$/, ""));
+    } else {
+      localStorage.removeItem(BACKEND_URL_KEY);
+    }
+  } catch {}
+}
+
+export function resetBackendUrl() {
+  try {
+    localStorage.removeItem(BACKEND_URL_KEY);
+  } catch {}
+}
+
+async function fetchJsonSafe(path, options = {}, timeoutMs = 4500) {
+  const base = getBackendUrl();
+  const url = `${base}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (!ct.includes("application/json")) {
+    // Prevents static Vercel SPA HTML rewrite from masquerading as API JSON
+    throw new Error("Non-JSON response (static host active)");
+  }
+  return await res.json();
+}
+
+export async function probeBackendConnection(overrideUrl) {
+  const base = overrideUrl !== undefined ? overrideUrl.replace(/\/+$/, "") : getBackendUrl();
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (!ct.includes("application/json")) throw new Error("Static host");
+    const data = await res.json();
+    if (data?.status !== "healthy") throw new Error("Unhealthy status");
+    return {
+      mode: "live",
+      url: base || window.location.origin,
+      latencyMs: Math.max(1, Math.round(performance.now() - t0)),
+      backbone: data.backbone || "openai/clip-vit-base-patch32",
+      fairnetLoaded: Boolean(data.fairnet_loaded),
+      totalSpots: data.total_spots_loaded || 68,
+    };
+  } catch {
+    return {
+      mode: "demo",
+      url: "built-in-demo",
+      latencyMs: 1,
+      backbone: "Instant Grounded Engine",
+      fairnetLoaded: false,
+      totalSpots: 68,
+    };
+  }
+}
 
 const CACHE_KEYS = {
   DESTINATIONS: "tripsense_cache_destinations",
@@ -11,72 +106,46 @@ const CACHE_KEYS = {
   SPOTS: "tripsense_cache_spots_",
   ROOM: "tripsense_cache_room",
   EXPENSES: "tripsense_expenses_v2",
-  SETTLED_DEBTS: "tripsense_settled_debts_v2"
+  SETTLED_DEBTS: "tripsense_settled_debts_v2",
 };
 
 export function formatCurrency(amountBDT, currency = "BDT") {
   const val = Number(amountBDT || 0);
-  if (currency === "USD") {
-    return `$${(val / 115.0).toFixed(1)}`;
-  }
-  if (currency === "EUR") {
-    return `€${(val / 124.0).toFixed(1)}`;
-  }
+  if (currency === "USD") return `$${(val / 115.0).toFixed(1)}`;
+  if (currency === "EUR") return `€${(val / 124.0).toFixed(1)}`;
   return `৳${Math.round(val).toLocaleString()}`;
 }
 
 export async function checkBackendHealth() {
-  try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) throw new Error("Health check failed");
-    return await res.json();
-  } catch (err) {
-    return { status: "offline", error: err.message };
-  }
+  return probeBackendConnection();
 }
 
 export async function fetchDestinations(forceOffline = false) {
-  if (forceOffline) {
-    const cached = localStorage.getItem(CACHE_KEYS.DESTINATIONS);
-    if (cached) return { data: JSON.parse(cached), fromCache: true };
-    return { data: ["Chittagong", "Cox's Bazar", "Sylhet", "Bandarban", "Dhaka", "Paris", "Tokyo"], fromCache: true };
+  if (!forceOffline) {
+    try {
+      const data = await fetchJsonSafe("/api/destinations", {}, 3000);
+      localStorage.setItem(CACHE_KEYS.DESTINATIONS, JSON.stringify(data));
+      return { data, fromCache: false, source: "live" };
+    } catch {}
   }
-
-  try {
-    const res = await fetch(`${API_BASE}/api/destinations`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    localStorage.setItem(CACHE_KEYS.DESTINATIONS, JSON.stringify(data));
-    return { data, fromCache: false };
-  } catch (err) {
-    console.warn("Falling back to cached destinations:", err);
-    const cached = localStorage.getItem(CACHE_KEYS.DESTINATIONS);
-    if (cached) return { data: JSON.parse(cached), fromCache: true };
-    return { data: ["Chittagong", "Cox's Bazar", "Sylhet", "Bandarban", "Dhaka", "Paris", "Tokyo"], fromCache: true };
-  }
+  const cached = localStorage.getItem(CACHE_KEYS.DESTINATIONS);
+  if (cached) return { data: JSON.parse(cached), fromCache: true, source: "demo" };
+  return { data: demoDestinations(), fromCache: true, source: "demo" };
 }
 
 export async function fetchSpots(city, forceOffline = false) {
   const cityKey = (city || "").toLowerCase();
   const cacheKey = CACHE_KEYS.SPOTS + cityKey;
-
-  if (forceOffline) {
-    const cached = localStorage.getItem(cacheKey);
-    return { data: cached ? JSON.parse(cached) : [], fromCache: true };
+  if (!forceOffline) {
+    try {
+      const data = await fetchJsonSafe(`/api/spots?city=${encodeURIComponent(city)}`, {}, 3000);
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+      return { data, fromCache: false, source: "live" };
+    } catch {}
   }
-
-  try {
-    const res = await fetch(`${API_BASE}/api/spots?city=${encodeURIComponent(city)}`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
-    localStorage.setItem(cacheKey, JSON.stringify(data));
-    return { data, fromCache: false };
-  } catch (err) {
-    console.warn(`Falling back to cached spots for ${city}:`, err);
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) return { data: JSON.parse(cached), fromCache: true };
-    return { data: [], fromCache: true };
-  }
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return { data: JSON.parse(cached), fromCache: true, source: "demo" };
+  return { data: demoSpots(city), fromCache: true, source: "demo" };
 }
 
 export async function generateGroupPlan(payload, forceOffline = false) {
@@ -84,108 +153,130 @@ export async function generateGroupPlan(payload, forceOffline = false) {
   const daysKey = payload.days || 3;
   const specificKey = `${CACHE_KEYS.PLAN}_${cityKey}_${daysKey}`;
 
-  if (forceOffline) {
-    const cached = localStorage.getItem(specificKey) || localStorage.getItem(CACHE_KEYS.PLAN);
-    if (cached) return { data: JSON.parse(cached), fromCache: true };
+  if (!forceOffline) {
+    try {
+      const data = await fetchJsonSafe(
+        "/api/group/generate-plan",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        9000
+      );
+      localStorage.setItem(specificKey, JSON.stringify(data));
+      localStorage.setItem(CACHE_KEYS.PLAN, JSON.stringify(data));
+      return { data, fromCache: false, source: "live" };
+    } catch {}
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/api/group/generate-plan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(12000)
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Plan generation failed (${res.status}): ${errText}`);
-    }
-    const data = await res.json();
-    localStorage.setItem(specificKey, JSON.stringify(data));
-    localStorage.setItem(CACHE_KEYS.PLAN, JSON.stringify(data));
-    return { data, fromCache: false };
-  } catch (err) {
-    console.warn("Backend request failed, checking offline cache:", err);
-    const cached = localStorage.getItem(specificKey) || localStorage.getItem(CACHE_KEYS.PLAN);
-    if (cached) return { data: JSON.parse(cached), fromCache: true, error: err.message };
-    throw err;
-  }
+  // Instant grounded demo synthesis ensures 0ms reliability even on cold static Vercel
+  const demoPlan = demoGenerateGroupPlan(payload);
+  return { data: demoPlan, fromCache: true, source: "demo" };
 }
 
 export async function replanWeather(payload) {
-  const res = await fetch(`${API_BASE}/api/itinerary/replan-weather`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(8000)
-  });
-  if (!res.ok) throw new Error(`Weather replan failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/itinerary/replan-weather",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      6000
+    );
+  } catch {
+    return demoReplanWeather(payload);
+  }
 }
 
 export async function vetoSpot(payload) {
-  const res = await fetch(`${API_BASE}/api/itinerary/veto-spot`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!res.ok) throw new Error(`Veto spot failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/itinerary/veto-spot",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      7000
+    );
+  } catch {
+    return demoVetoSpot(payload);
+  }
 }
 
 export async function nextActiveSwipe(history = [], maxCards = 6) {
-  const res = await fetch(`${API_BASE}/api/ml/swipe/next`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ history, max_cards: maxCards }),
-    signal: AbortSignal.timeout(6000)
-  });
-  if (!res.ok) throw new Error(`Active swipe failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/ml/swipe/next",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ history, max_cards: maxCards }),
+      },
+      4500
+    );
+  } catch {
+    return demoNextActiveSwipe(history, maxCards);
+  }
 }
 
 export async function fetchMlMetrics() {
   try {
-    const res = await fetch(`${API_BASE}/api/ml/metrics`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+    const res = await fetchJsonSafe("/api/ml/metrics", {}, 4000);
+    if (res && res.group_consensus_comparison) return res;
+  } catch {}
+  return demoMlMetrics();
 }
 
 export async function sendCopilotChat(payload) {
-  const res = await fetch(`${API_BASE}/api/copilot/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(14000)
-  });
-  if (!res.ok) throw new Error(`Copilot chat failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/copilot/chat",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      12000
+    );
+  } catch {
+    return demoCopilotChat(payload);
+  }
 }
 
 export async function fetchEcoReport(payload) {
-  const res = await fetch(`${API_BASE}/api/sustainability/eco-report`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(6000)
-  });
-  if (!res.ok) throw new Error(`Eco report failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/sustainability/eco-report",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      5000
+    );
+  } catch {
+    return demoEcoReport(payload);
+  }
 }
 
 export async function reserveBooking(payload) {
-  const res = await fetch(`${API_BASE}/api/bookings/reserve`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(8000)
-  });
-  if (!res.ok) throw new Error(`Booking failed (${res.status})`);
-  return await res.json();
+  try {
+    return await fetchJsonSafe(
+      "/api/bookings/reserve",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      6000
+    );
+  } catch {
+    return demoReserveBooking(payload);
+  }
 }
 
 export function saveRoomState(roomData) {

@@ -126,6 +126,7 @@ def health_check():
         "status": "healthy",
         "service": "TripSense FairNet + Neuro-Symbolic API",
         "version": "3.0.0",
+        "provider_hint": "live",
         "fairnet_loaded": infer.loaded_real_model,
         "backbone": infer.backbone_name,
         "total_spots_loaded": len(spots),

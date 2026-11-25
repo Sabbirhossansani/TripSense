@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "framer-motion";
 import {
   Navigation,
   Sparkles,
@@ -16,7 +17,7 @@ import MemberProfileModal from "./MemberProfileModal";
 import EditorialHero from "./EditorialHero";
 import BeforeAfterComparer from "./BeforeAfterComparer";
 import EcoImpactCalculator from "./EcoImpactCalculator";
-import { ShimmerCardSkeleton } from "./MotionPrimitives";
+import { ShimmerCardSkeleton, StaggerContainer, StaggerItem } from "./MotionPrimitives";
 import { SPOT_IMAGES } from "../assets/images";
 import { formatCurrency } from "../api/client";
 
@@ -45,6 +46,8 @@ export default function ItineraryTab({
   onOpenSwipe,
   onOpenLogin,
   onOpenMlLab,
+  connectionState,
+  onOpenConnect,
   vetoNotification: externalVetoNotification = null,
   lang = "EN",
   currency = "BDT",
@@ -111,10 +114,12 @@ export default function ItineraryTab({
         co2SavedKg={ecoSummary.co2_saved_kg}
         lang={lang}
         currentUser={currentUser}
+        connectionState={connectionState}
         onStartSwipe={onOpenSwipe}
         onOpenWizard={onOpenSetupWizard}
         onOpenLogin={onOpenLogin}
         onOpenMlLab={onOpenMlLab}
+        onOpenConnect={onOpenConnect}
       />
 
       {/* Loading Skeletons (Zero CLS) */}
@@ -352,7 +357,7 @@ export default function ItineraryTab({
             replannedNotifications={replannedNotifications}
           />
 
-          {/* Days Tabs */}
+          {/* Days Tabs with shared layoutId indicator */}
           <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "8px", marginBottom: "12px" }}>
             {dailySchedule.map((day, idx) => {
               const isSelected = selectedDayIndex === idx;
@@ -362,21 +367,39 @@ export default function ItineraryTab({
                   type="button"
                   onClick={() => setSelectedDayIndex(idx)}
                   style={{
+                    position: "relative",
                     flex: "1 0 auto",
                     minWidth: "120px",
-                    padding: "10px 14px",
+                    padding: "11px 14px",
                     borderRadius: "14px",
-                    border: isSelected ? "2px solid var(--safety-orange)" : "1px solid var(--stone-border)",
-                    background: isSelected ? "var(--safety-orange-soft)" : "#FFFFFF",
+                    border: "1px solid var(--stone-border)",
+                    background: "#FFFFFF",
                     cursor: "pointer",
                     textAlign: "left",
+                    overflow: "hidden",
                   }}
                 >
-                  <div style={{ fontSize: "12px", fontWeight: 800, color: isSelected ? "var(--safety-orange-hover)" : "var(--granite-950)" }}>
-                    Day {day.day}
-                  </div>
-                  <div style={{ fontSize: "11px", color: isSelected ? "var(--safety-orange)" : "var(--granite-600)", fontWeight: 600 }}>
-                    {getDayDateLabel(idx)}
+                  {isSelected && (
+                    <motion.div
+                      layoutId="activeDayPill"
+                      transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: "var(--safety-orange-soft)",
+                        border: "2px solid var(--safety-orange)",
+                        borderRadius: "14px",
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  <div style={{ position: "relative", zIndex: 1 }}>
+                    <div style={{ fontSize: "12px", fontWeight: 800, color: isSelected ? "var(--safety-orange-hover)" : "var(--granite-950)" }}>
+                      Day {day.day}
+                    </div>
+                    <div style={{ fontSize: "11px", color: isSelected ? "var(--safety-orange)" : "var(--granite-600)", fontWeight: 600 }}>
+                      {getDayDateLabel(idx)}
+                    </div>
                   </div>
                 </button>
               );
@@ -459,19 +482,22 @@ export default function ItineraryTab({
                 </div>
               )}
 
-              {currentSpots.map((spot, index) => (
-                <SpotCard
-                  key={spot.id || index}
-                  spot={spot}
-                  index={index}
-                  onSelect={onSelectSpot}
-                  onVeto={handleVeto}
-                  onBook={onBookSpot}
-                  userVetoTokens={userTokens}
-                  currentMemberName={activeUserName}
-                  currency={currency}
-                />
-              ))}
+              <StaggerContainer key={`day-${selectedDayIndex}`}>
+                {currentSpots.map((spot, index) => (
+                  <StaggerItem key={spot.id || index}>
+                    <SpotCard
+                      spot={spot}
+                      index={index}
+                      onSelect={onSelectSpot}
+                      onVeto={handleVeto}
+                      onBook={onBookSpot}
+                      userVetoTokens={userTokens}
+                      currentMemberName={activeUserName}
+                      currency={currency}
+                    />
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
             </div>
           </div>
 

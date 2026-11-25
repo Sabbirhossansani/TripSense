@@ -1,6 +1,43 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, Bot, Send, CloudRain, Scale, DollarSign, ShieldCheck } from "lucide-react";
 import { sendCopilotChat } from "../api/client";
+
+function renderInlineBold(text, keyPrefix = "inline") {
+  const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return (
+        <strong key={`${keyPrefix}-b-${i}`} style={{ fontWeight: 800, color: "var(--granite-950)" }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={`${keyPrefix}-t-${i}`}>{part}</React.Fragment>;
+  });
+}
+
+function renderFormattedMessage(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  return lines.map((ln, idx) => {
+    const trimmed = ln.trim();
+    if (!trimmed) return <div key={`sp-${idx}`} style={{ height: "6px" }} />;
+    if (trimmed.startsWith("• ") || trimmed.startsWith("- ")) {
+      const content = trimmed.slice(2);
+      return (
+        <div key={`li-${idx}`} style={{ display: "flex", gap: "7px", marginTop: "4px", alignItems: "flex-start" }}>
+          <span style={{ color: "var(--safety-orange)", fontWeight: 800 }}>•</span>
+          <span>{renderInlineBold(content, `li-${idx}`)}</span>
+        </div>
+      );
+    }
+    return (
+      <p key={`p-${idx}`} style={{ margin: idx === 0 ? 0 : "5px 0 0 0" }}>
+        {renderInlineBold(trimmed, `p-${idx}`)}
+      </p>
+    );
+  });
+}
 
 export default function AiCopilotModal({
   isOpen,
@@ -89,34 +126,41 @@ export default function AiCopilotModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100002,
-        background: "rgba(26, 29, 28, 0.72)",
-        backdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-    >
-      <div
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         style={{
-          background: "#FAF9F6",
-          borderRadius: "28px",
-          maxWidth: "540px",
-          width: "100%",
-          height: "650px",
-          maxHeight: "92vh",
+          position: "fixed",
+          inset: 0,
+          zIndex: 100002,
+          background: "rgba(18, 23, 21, 0.72)",
+          backdropFilter: "blur(8px)",
           display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
-          overflow: "hidden",
-          border: "1px solid var(--stone-border)",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
         }}
       >
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            background: "#FAF8F3",
+            borderRadius: "28px",
+            maxWidth: "540px",
+            width: "100%",
+            height: "650px",
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
+            overflow: "hidden",
+            border: "1px solid var(--stone-border)",
+          }}
+        >
         {/* Header */}
         <div
           style={{
@@ -183,7 +227,9 @@ export default function AiCopilotModal({
                   </div>
                 )}
 
-                <div>{m.text}</div>
+                <div style={{ wordBreak: "break-word" }}>
+                  {isCopilot ? renderFormattedMessage(m.text) : m.text}
+                </div>
 
                 {isCopilot && m.sources && m.sources.length > 0 && (
                   <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed var(--stone-border)", display: "flex", flexWrap: "wrap", gap: "5px" }}>
@@ -292,8 +338,9 @@ export default function AiCopilotModal({
             <Send size={16} />
           </button>
         </form>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

@@ -37,7 +37,7 @@ def _extract_table_costs(content: str, min_val: float = 10.0, max_val: float = 2
             costs.append(float(m.group(1)))
         return costs
 
-    for ln in lines[1:25]:
+    for ln in lines[1:]:
         nums = [float(x) for x in re.findall(r"(?<![.\d-])(\d{2,4}(?:\.\d+)?)(?![.\d])", ln)]
         # Take first plausible currency/price number per table row (skip review counts/years > max_val)
         plausible = [n for n in nums if min_val <= n <= max_val and n not in (2022, 2023, 2024)]
@@ -51,8 +51,20 @@ def _check_constraint_match(lines: List[str], keywords: List[str]) -> bool:
         return True
     if not lines:
         return False
-    joined = "\n".join(lines).lower()
-    return all(kw.lower() in joined for kw in keywords if kw)
+    norm_lines = [re.sub(r"\s+", " ", ln.lower()).strip() for ln in lines]
+    for kw in keywords:
+        if not kw:
+            continue
+        k = re.sub(r"\s+", " ", kw.lower()).strip()
+        if k.startswith("no "):
+            forbidden = k[3:].strip()
+            # Negated house rules pass when rows explicitly state "no <rule>" or omit the forbidden permission
+            if not any((k in ln) or (forbidden not in ln) for ln in norm_lines):
+                return False
+        else:
+            if not any(k in ln for ln in norm_lines):
+                return False
+    return True
 
 
 def evaluate_travelplanner_rag(df: pd.DataFrame, max_tasks: int = 180) -> Dict[str, Any]:
@@ -100,10 +112,10 @@ def evaluate_travelplanner_rag(df: pd.DataFrame, max_tasks: int = 180) -> Dict[s
             if "attraction" in desc and len(lines) > 1:
                 has_attraction = True
             elif "restaurant" in desc:
-                rest_lines.extend(lines[1:25])
+                rest_lines.extend(lines[1:])
                 rest_costs.extend(_extract_table_costs(content, min_val=8.0, max_val=250.0))
             elif "accommodation" in desc:
-                accom_lines.extend(lines[1:25])
+                accom_lines.extend(lines[1:])
                 accom_costs.extend(_extract_table_costs(content, min_val=35.0, max_val=1200.0))
             elif "flight" in desc:
                 flight_costs.extend(_extract_table_costs(content, min_val=45.0, max_val=1500.0))

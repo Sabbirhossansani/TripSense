@@ -12,12 +12,12 @@ export default function FloatingQuickActions({
 
   return (
     <div
+      className="desktop-only-fab"
       style={{
         position: "fixed",
         bottom: "76px",
         right: "18px",
         zIndex: 92,
-        display: "flex",
         flexDirection: "column",
         gap: "8px",
         alignItems: "flex-end",

@@ -3,7 +3,7 @@
   "backbone": "openai/clip-vit-base-patch32",
   "embedding_dim": 512,
   "device_trained": "cuda (NVIDIA GeForce RTX 3050 6GB Laptop GPU)",
-  "training_time_sec": 75.2,
+  "training_time_sec": 423.84,
   "datasets": {
     "group_poi_benchmark": "CRUISEResearchGroup/Massive-STEPS-Sydney",
     "total_checkins_loaded": 29900,
@@ -14,33 +14,31 @@
     "rag_benchmark": "osunlp/TravelPlanner (validation)"
   },
   "fairnet_training": {
-    "epochs": 20,
-    "initial_loss": 0.6673,
-    "final_loss": 0.4034,
+    "epochs": 18,
+    "initial_loss": 2.1237,
+    "final_loss": 1.4101,
     "loss_curve": [
-      0.6673,
-      0.6131,
-      0.5711,
-      0.5579,
-      0.5438,
-      0.5466,
-      0.5151,
-      0.5062,
-      0.4899,
-      0.4747,
-      0.4568,
-      0.4596,
-      0.4356,
-      0.4207,
-      0.4245,
-      0.4077,
-      0.3994,
-      0.3957,
-      0.4063,
-      0.4034
+      2.1237,
+      1.9894,
+      1.9466,
+      1.8674,
+      1.8376,
+      1.7938,
+      1.7573,
+      1.7012,
+      1.6765,
+      1.6324,
+      1.5987,
+      1.5433,
+      1.5028,
+      1.4502,
+      1.4641,
+      1.4338,
+      1.4197,
+      1.4101
     ],
-    "best_val_hit10": 0.2047,
-    "ablation_nofair_val_hit10": 0.1417,
+    "best_val_hit10": 0.189,
+    "ablation_nofair_val_hit10": 0.1496,
     "total_parameters": 334019
   },
   "group_consensus_comparison": {
@@ -51,8 +49,8 @@
       "gini_index": 0.0034,
       "min_member_sat": 93.1,
       "eco_coverage_pct": 59.4,
-      "p_value_ndcg10": 0.365993,
-      "p_value_gini": 3e-06
+      "p_value_ndcg10": 0.819898,
+      "p_value_gini": 2.9e-05
     },
     "Average Cosine": {
       "ndcg5": 0.0064,
@@ -61,8 +59,8 @@
       "gini_index": 0.0025,
       "min_member_sat": 95.99,
       "eco_coverage_pct": 62.24,
-      "p_value_ndcg10": 0.013069,
-      "p_value_gini": 0.764446
+      "p_value_ndcg10": 0.039154,
+      "p_value_gini": 0.614143
     },
     "Least-Misery": {
       "ndcg5": 0.009,
@@ -71,7 +69,7 @@
       "gini_index": 0.0016,
       "min_member_sat": 96.13,
       "eco_coverage_pct": 62.65,
-      "p_value_ndcg10": 0.009042,
+      "p_value_ndcg10": 0.042522,
       "p_value_gini": 0.0
     },
     "LightGBM GBDT": {
@@ -81,27 +79,40 @@
       "gini_index": 0.0032,
       "min_member_sat": 92.69,
       "eco_coverage_pct": 61.44,
-      "p_value_ndcg10": 0.138072,
-      "p_value_gini": 0.000627
+      "p_value_ndcg10": 0.04848,
+      "p_value_gini": 0.001381
     },
     "FairNet (w/o Fairness)": {
-      "ndcg5": 0.0136,
-      "ndcg10": 0.0168,
-      "hit10": 8.59,
-      "gini_index": 0.0025,
-      "min_member_sat": 92.34,
-      "eco_coverage_pct": 58.57,
-      "p_value_ndcg10": 0.056651,
-      "p_value_gini": 0.941231
+      "ndcg5": 0.0241,
+      "ndcg10": 0.0265,
+      "hit10": 11.72,
+      "gini_index": 0.0026,
+      "min_member_sat": 90.37,
+      "eco_coverage_pct": 65.0,
+      "p_value_ndcg10": 0.008935,
+      "p_value_gini": 0.111079
     },
     "TripSense-FairNet (Ours)": {
-      "ndcg5": 0.0258,
-      "ndcg10": 0.0352,
-      "hit10": 17.97,
+      "ndcg5": 0.0247,
+      "ndcg10": 0.03,
+      "hit10": 13.28,
       "gini_index": 0.0025,
-      "min_member_sat": 92.39,
-      "eco_coverage_pct": 59.4
+      "min_member_sat": 91.08,
+      "eco_coverage_pct": 67.3
     }
+  },
+  "multi_seed_stability": {
+    "seeds": [
+      42,
+      102,
+      2026
+    ],
+    "ndcg10_mean": 0.0301,
+    "ndcg10_std": 0.0007,
+    "hit10_mean": 13.54,
+    "hit10_std": 0.97,
+    "gini_mean": 0.0026,
+    "gini_std": 0.0001
   },
   "shap_feature_importance": [
     {
@@ -180,7 +191,7 @@
   "travelplanner_rag_evaluation": {
     "benchmark": "osunlp/TravelPlanner (validation)",
     "num_tasks": 180,
-    "avg_verify_ms": 0.716,
+    "avg_verify_ms": 1.601,
     "published_icml2024_zeroshot_final_pass": {
       "gpt_3_5_pct": 0.6,
       "gpt_4_pct": 4.4

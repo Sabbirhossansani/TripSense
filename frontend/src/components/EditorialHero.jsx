@@ -1,6 +1,6 @@
 import React from "react";
-import { Sparkles, Compass, Leaf, ShieldCheck, ArrowUpRight, Layers } from "lucide-react";
-import { MagneticButton, ScrollReveal } from "./MotionPrimitives";
+import { Sparkles, Compass, Leaf, ShieldCheck, ArrowUpRight, Layers, Cpu } from "lucide-react";
+import { MagneticButton, ScrollReveal, ParallaxPhoto, StaggerContainer, StaggerItem } from "./MotionPrimitives";
 
 export default function EditorialHero({
   city = "Chittagong",
@@ -8,25 +8,25 @@ export default function EditorialHero({
   co2SavedKg = 11.6,
   lang = "EN",
   currentUser,
+  connectionState,
   onStartSwipe,
   onOpenWizard,
   onOpenLogin,
   onOpenMlLab,
+  onOpenConnect,
 }) {
   const isBn = lang === "BN";
+  const isLiveApi = connectionState?.mode === "live";
 
   return (
     <ScrollReveal>
       <section
+        className="editorial-card editorial-grain"
         style={{
           position: "relative",
-          background: "#FFFFFF",
-          border: "1px solid var(--stone-border)",
-          borderRadius: "28px",
-          padding: "28px",
-          marginBottom: "24px",
+          padding: "32px 28px",
+          marginBottom: "26px",
           overflow: "hidden",
-          boxShadow: "0 18px 44px rgba(26, 29, 28, 0.06)",
         }}
       >
         {/* Subtle Editorial Topographic Texture Accent */}
@@ -211,43 +211,44 @@ export default function EditorialHero({
           </div>
 
           {/* Right Staggered Editorial Photo Collage + Overlapping Telemetry Card */}
-          <div style={{ position: "relative", minHeight: "270px", display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: "12px", alignItems: "stretch" }}>
-            <div style={{ position: "relative", borderRadius: "20px", overflow: "hidden", minHeight: "250px", border: "1px solid var(--stone-border)" }}>
-              <img
+          <StaggerContainer style={{ position: "relative", minHeight: "280px", display: "grid", gridTemplateColumns: "1.18fr 0.82fr", gap: "12px", alignItems: "stretch" }}>
+            <StaggerItem style={{ position: "relative", borderRadius: "20px", overflow: "hidden", minHeight: "260px", border: "1px solid var(--stone-border)" }}>
+              <ParallaxPhoto
                 src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
                 alt="Coastal Expedition"
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                style={{ width: "100%", height: "100%", minHeight: "260px" }}
               />
               <div
                 style={{
                   position: "absolute",
                   inset: 0,
-                  background: "linear-gradient(to top, rgba(26,29,28,0.82) 0%, transparent 55%)",
+                  background: "linear-gradient(to top, rgba(18,23,21,0.84) 0%, transparent 55%)",
+                  pointerEvents: "none",
                 }}
               />
               <div style={{ position: "absolute", bottom: "14px", left: "14px", right: "14px", color: "#FFFFFF" }}>
                 <div className="font-mono-num" style={{ fontSize: "10px", opacity: 0.85, letterSpacing: "0.8px" }}>
                   22.3569° N, 91.7832° E
                 </div>
-                <div className="font-display" style={{ fontSize: "17px", fontWeight: 700 }}>
+                <div className="font-display" style={{ fontSize: "18px", fontWeight: 700 }}>
                   {city} Coastal & Heritage Trail
                 </div>
               </div>
-            </div>
+            </StaggerItem>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <div style={{ position: "relative", borderRadius: "18px", overflow: "hidden", flex: 1, minHeight: "120px", border: "1px solid var(--stone-border)" }}>
-                <img
+            <StaggerItem style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ position: "relative", borderRadius: "18px", overflow: "hidden", flex: 1, minHeight: "124px", border: "1px solid var(--stone-border)" }}>
+                <ParallaxPhoto
                   src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80"
                   alt="Eco Forest"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  style={{ width: "100%", height: "100%", minHeight: "124px" }}
                 />
                 <div
                   style={{
                     position: "absolute",
                     top: "10px",
                     left: "10px",
-                    background: "rgba(37, 70, 59, 0.9)",
+                    background: "rgba(31, 75, 62, 0.92)",
                     color: "#FFFFFF",
                     padding: "4px 10px",
                     borderRadius: "999px",
@@ -263,11 +264,11 @@ export default function EditorialHero({
                 </div>
               </div>
 
-              {/* Overlapping Metric Card */}
+              {/* Overlapping Metric & Live Engine Telemetry Card */}
               <div
                 style={{
                   background: "var(--granite-950)",
-                  color: "#F6F4EF",
+                  color: "#F7F4EE",
                   borderRadius: "18px",
                   padding: "14px",
                   display: "flex",
@@ -279,18 +280,42 @@ export default function EditorialHero({
                   <span style={{ fontSize: "10px", fontWeight: 700, color: "#B8C0BC", letterSpacing: "0.6px" }}>
                     GROUP FAIRNESS
                   </span>
-                  <ShieldCheck size={14} color="#E85D2A" />
+                  <ShieldCheck size={14} color="#D94E28" />
                 </div>
                 <div className="font-mono-num" style={{ fontSize: "24px", fontWeight: 700, margin: "4px 0" }}>
                   {fairnessScore}
                   <span style={{ fontSize: "12px", color: "#9AA39F", fontWeight: 500 }}>/100</span>
                 </div>
-                <div style={{ fontSize: "11px", color: "#9FE0C4", fontWeight: 600 }}>
-                  ✓ Least-Misery + FairNet Protected
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "10px", color: "#9FE0C4", fontWeight: 600 }}>
+                    ✓ FairNet Protected
+                  </span>
+                  {onOpenConnect && (
+                    <button
+                      type="button"
+                      onClick={onOpenConnect}
+                      style={{
+                        background: isLiveApi ? "rgba(159,224,196,0.16)" : "rgba(184,134,59,0.22)",
+                        color: isLiveApi ? "#9FE0C4" : "#F3D39A",
+                        border: "1px solid rgba(255,255,255,0.14)",
+                        borderRadius: "999px",
+                        padding: "2px 8px",
+                        fontSize: "9px",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <Cpu size={10} />
+                      <span>{isLiveApi ? "Live AI" : "Instant Demo"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
+            </StaggerItem>
+          </StaggerContainer>
         </div>
       </section>
     </ScrollReveal>
