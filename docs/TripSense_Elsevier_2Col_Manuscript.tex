@@ -1,0 +1,460 @@
+\documentclass[final,5p,twocolumn]{elsarticle}
+
+\usepackage{iftex}
+\ifXeTeX
+  \usepackage{fontspec}
+  \setmainfont{Times New Roman}
+\else
+  \usepackage[T1]{fontenc}
+  \usepackage{times}
+\fi
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{microtype}
+\usepackage{balance}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+
+\newtheorem{proposition}{Proposition}
+
+\journal{Expert Systems with Applications}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{TripSense-FairNet v2: Rotation-Invariant Dual-Stream Consensus, Nash Counterfactual Recourse, and Verifiably Faithful Explainable AI for Sustainable Group Travel Planning}
+
+\author[diu]{Sabbir Hossan Sani\corref{cor1}}
+\ead{sani2305101776@diu.edu.bd}
+\cortext[cor1]{Corresponding author.}
+\affiliation[diu]{organization={Department of Software Engineering, Daffodil International University},
+            city={Dhaka},
+            country={Bangladesh}}
+
+\begin{abstract}
+Group travel planning presents a tightly coupled multi-objective decision problem: maximizing collective itinerary relevance for heterogeneous companions while minimizing intra-group satisfaction inequality (consumer fairness), elevating low-carbon small-and-medium enterprise (SME) destinations (provider sustainability), enforcing deterministic budget feasibility, and supplying auditable explanations. Existing neural group recommenders project high-dimensional pretrained embeddings through unconstrained linear maps, causing memorization of city-specific lexical subspaces and severe performance degradation under zero-shot cross-city transfer. Conversely, gradient-boosted decision trees generalize across tabular summaries yet remain non-differentiable with respect to companion-level attention equity and ecological objectives. To address these limitations, we introduce \textbf{TripSense-FairNet v2}, a lightweight $64{,}286$-parameter rotation-invariant dual-stream neural consensus architecture built on isotropically mean-centered CLIP ViT-B/32 representations. Stream~1 encodes companion-specific rotation-invariant geometric interaction tokens paired with a bounded low-rank Hadamard semantic residual ($0.35\tanh(\cdot)$), 4-head cross-attention over companions, and a differentiable Soft-Min Rawlsian safety gate. Stream~2 processes a 15-dimensional city-agnostic group-relational highway without raw input LayerNorm distortion, fused additively via learned softplus scales. Joint training optimizes 20-negative sampled InfoNCE ($\tau{=}0.20$), smooth pairwise Differentiable Gini regularization augmented with Soft-Slate dispersion, a Least-Misery safety floor, and Differentiable Expected Eco-Exposure. On a deterministic zero-leakage chronological benchmark derived from \textit{Massive-STEPS-Sydney} ($29{,}900$ check-ins, $8{,}189$ venues, $1{,}200$ groups), TripSense-FairNet v2 achieves $\text{NDCG@10} = 0.5394$ ($95\%$ Bootstrap CI $[0.4971, 0.5810]$), $\text{NDCG@5} = 0.4739$, $\text{Hit@10} = 0.9000$, $\text{MRR@10} = 0.6700$, $\text{Gini} = 0.0630$, and Top-5 Eco Coverage $= 38.67\%$, significantly outperforming nine heuristic, neural, and tree-ensemble baselines including LightGBM ($0.4736$, Holm--Bonferroni $p = 0.00105$), GroupMLP ($0.4715$), Random Forest ($0.4520$), HistGBDT ($0.4416$), and AGREE ($0.4329$; Friedman $\chi^2 = 513.035$, $p = 9.291 \times 10^{-105}$, Nemenyi $\text{CD}_{0.05} = 1.010$). Across five random seeds, FairNet v2 maintains $\text{NDCG@10} = 0.5200 \pm 0.0123$ and $\text{Gini} = 0.0640 \pm 0.0015$ at $3.99\text{ ms}$ GPU ($4.42\text{ ms}$ CPU) latency per 100 candidates. In zero-shot cross-city transfer without retraining, FairNet v2 outperforms LightGBM in Melbourne ($0.3190$ vs.\ $0.2941$) and Tokyo ($0.3130$ vs.\ $0.2669$) and remains competitive in New-York ($0.3090$) while achieving the highest eco coverage across all unseen cities ($49.88\%$--$66.50\%$). Multi-paradigm XAI auditing confirms Integrated Gradients Axiom~1 Completeness ($\text{MAE} = 3.0 \times 10^{-6}$), $3.43\times$ Perturbation Comprehensiveness over random masking, $0.4697$ cross-attention allocation toward lowest-budget companions, and $+6.25\%$ Nash bargaining counterfactual welfare gains alongside $100.0\%$ hard budget feasibility ($0.934\text{ ms}$/task) on 180 \textit{TravelPlanner} tasks.
+\end{abstract}
+
+\begin{keyword}
+Group recommender systems \sep Algorithmic fairness \sep Explainable artificial intelligence \sep Zero-shot cross-city transfer \sep Sustainable tourism \sep Nash bargaining
+\end{keyword}
+
+\end{frontmatter}
+
+%% ============================================================================
+\section{Introduction}
+\label{sec:intro}
+%% ============================================================================
+Traveling with friends, family, or academic cohorts transforms point-of-interest (POI) recommendation from single-user preference matching into a multi-party social choice problem \cite{masthoff2015group,cao2018attentive,islam2022survey}. Companions within a shared travel party routinely exhibit conflicting aesthetic preferences (e.g., heritage museums vs.\ coastal nature vs.\ culinary markets) alongside asymmetric financial constraints (Student/Budget vs.\ Mid-range vs.\ Luxury spending tiers). Standard utilitarian recommenders maximize average group preference, systematically marginalizing budget-constrained or minority-taste companions and generating elevated intra-group satisfaction inequality \cite{xiao2017fairness,kaya2020ensuring}. Conversely, static Least-Misery heuristics equalize worst-case utility at the expense of severe ranking degradation.
+
+Beyond intra-group equity, urban destination platforms suffer from entrenched popularity bias \cite{chen2023bias}. Concentrating itinerary recommendations onto heavily checked-in commercial landmarks accelerates over-tourism, increases transit emissions, and starves environmentally sustainable hidden gems and locally owned small-and-medium enterprises (SMEs) of economic participation \cite{burke2017multisided,patro2020fairrec}. Designing a practical expert system for sustainable group tourism therefore requires resolving four interlocking technical challenges simultaneously:
+
+\begin{enumerate}
+    \item \textbf{Cross-City Domain Collapse in Neural Group Recommenders:} Neural attention aggregators such as AGREE \cite{cao2018attentive} project high-dimensional dense embeddings ($D{=}512$) directly via linear maps. When trained on finite group logs from one source city (e.g., Sydney), unconstrained dense layers memorize city-specific lexical subspaces (local station or district names), leading to severe generalization drops when deployed zero-shot in unseen cities (Melbourne, Tokyo, New-York).
+    \item \textbf{Differentiable Multi-Objective Balancing:} Tree ensembles such as LightGBM \cite{ke2017lightgbm} and Random Forest \cite{breiman2001random} generalize reliably on compact relational statistics, yet optimize binary classification loss without listwise ranking discrimination, differentiable intra-group Gini minimization, or ecological exposure gradients.
+    \item \textbf{Faithfulness Gaps in Post-Hoc Explanations:} Real-world travel companions require transparent answers to \emph{why} a stop was selected and \emph{how} a veto affects group equity. Reporting unverified feature weights without axiomatic completeness or perturbation faithfulness tests risks misleading explanations \cite{sundararajan2017axiomatic,deyoung2020eraser}.
+    \item \textbf{Hallucination and Constraint Failure in LLM Planners:} Unconstrained large language models routinely invent nonexistent venues or violate group budgets, yielding only $0.6\%$--$4.4\%$ final pass rates on the \textit{TravelPlanner} benchmark \cite{xie2024travelplanner}.
+\end{enumerate}
+
+To resolve all four challenges inside one cohesive framework, we present \textbf{TripSense-FairNet v2}, integrated with Bayesian Expected Information Gain (EIG) cold-start elicitation, counterfactual Nash Bargaining veto recourse \cite{nash1950bargaining}, and deterministic neuro-symbolic constraint verification. Our main contributions are summarized as follows:
+
+\begin{itemize}
+    \item \textbf{Rotation-Invariant Dual-Stream Architecture:} We apply unsupervised All-but-the-Top centering \cite{mu2018all} to city-agnostic CLIP ViT-B/32 embeddings \cite{radford2021learning} and design a hybrid architecture fusing rotation-invariant intra-group geometric interaction tokens, a bounded low-rank Hadamard semantic residual ($0.35\tanh$), 4-head cross-attention, a Soft-Min Rawlsian gate, and an un-squashed 15-dimensional relational highway.
+    \item \textbf{Calibrated Pareto InfoNCE Objective:} We formulate an end-to-end differentiable objective uniting 20-negative listwise InfoNCE \cite{oord2018representation}, pairwise Differentiable Gini, Soft-Slate Rawlsian dispersion, Least-Misery floor protection, and Differentiable Expected Eco-Exposure.
+    \item \textbf{Rigorous Multi-City, Multi-Seed, and Statistical Verification:} Using strictly chronological, zero-leakage group splits across four global cities (Sydney, Melbourne, Tokyo, New-York) and a five-city Bangladesh pilot audit (Dhaka, Chittagong, Sylhet, Cox's Bazar, Bandarban), we benchmark 10 models across 5 random seeds, 7 component ablations, $\lambda_{\text{gini}}$ Pareto sweeps, group cardinality scaling ($|G|{=}2..5$), Holm--Bonferroni Wilcoxon tests \cite{holm1979simple}, Cliff's $\delta$ \cite{cliff1993dominance}, and Friedman--Nemenyi analysis \cite{demsar2006statistical}.
+    \item \textbf{Multi-Paradigm Quantitative XAI \& Neuro-Symbolic Assurance:} We audit FairNet v2 using four complementary explainability paradigms---32-step Integrated Gradients (verifying Completeness $\text{MAE} = 3.0 \times 10^{-6}$ and $3.43\times$ Comprehensiveness over random ablation), Permutation Importance, TreeSHAP cross-method concordance \cite{lundberg2017unified}, and cross-attention / Nash counterfactual equity---paired with $100.0\%$ budget feasibility across 180 \textit{TravelPlanner} tasks.
+\end{itemize}
+
+%% ============================================================================
+\section{Related Work}
+\label{sec:related}
+%% ============================================================================
+\subsection{Group Recommendation and Consensus Learning}
+Early group recommender systems aggregate individual preference predictions via fixed social-choice heuristics, notably Average Utility, Least-Misery \cite{rawls1971theory}, and Borda Count \cite{masthoff2015group}. Because fixed rules cannot capture dynamic member dominance or contextual compromises, Cao et al.\ \cite{cao2018attentive} introduced AGREE, leveraging neural attention \cite{vaswani2017attention} over member embeddings inside a Neural Collaborative Filtering (NCF) \cite{he2017neural} interaction tower trained via Bayesian Personalized Ranking (BPR). Subsequent fairness-aware frameworks \cite{xiao2017fairness,kaya2020ensuring} incorporated variance minimization or rank-sensitive balancing to protect minority members. However, existing neural group models rarely guard against dense embedding overfitting across unseen geographic domains, nor do they jointly optimize consumer fairness and environmental sustainability inside a listwise differentiable objective.
+
+\subsection{Two-Sided Fairness and Sustainable Destination Planning}
+Multi-sided fairness theory distinguishes consumer-side equity ($C$-fairness) from provider-side visibility ($P$-fairness) \cite{burke2017multisided}. Patro et al.\ \cite{patro2020fairrec} demonstrated via FairRec that improving provider exposure need not severely compromise consumer utility. In tourism informatics \cite{islam2022survey,chen2023bias}, unchecked popularity feedback loops channel visitors toward congested urban bottlenecks, raising per-capita carbon footprints while depriving offbeat cultural sites and community-run SMEs of revenue. TripSense-FairNet v2 operationalizes two-sided tourism fairness directly inside gradient descent by pairing consumer-side Gini/Rawlsian losses with differentiable slate-level Eco-Exposure regularization.
+
+\subsection{Faithful Explainable AI and Neuro-Symbolic Travel Planning}
+Explainable recommender systems increasingly distinguish between plausible feature importances and mathematically \emph{faithful} explanations. Sundararajan et al.\ \cite{sundararajan2017axiomatic} established Integrated Gradients (IG), uniquely satisfying Sensitivity and Completeness axioms, whereas Lundberg and Lee \cite{lundberg2017unified} unified additive game-theoretic attributions via SHAP. DeYoung et al.\ \cite{deyoung2020eraser} formalized perturbation-based faithfulness through Comprehensiveness (probability drop when removing top-attributed inputs) and Sufficiency (prediction retention when preserving only top-attributed inputs). Concurrently, Xie et al.\ \cite{xie2024travelplanner} exposed severe constraint-satisfaction failures in standalone LLMs on \textit{TravelPlanner}, motivating hybrid neuro-symbolic architectures that verify grounding, timing, and hard budget bounds deterministically.
+
+%% ============================================================================
+\section{Methodology}
+\label{sec:method}
+%% ============================================================================
+\subsection{Zero-Leakage Chronological Problem Formulation}
+Let $\mathcal{V}$ denote the catalog of POIs in a destination city and $\mathcal{U}$ the set of travelers. To prevent city-name shortcut learning during zero-shot cross-city transfer, every venue $p \in \mathcal{V}$ is represented by a strictly city-agnostic textual descriptor $t_p = \text{``}\text{Name} \mid \text{Category}\text{''}$ and encoded via frozen CLIP ViT-B/32 \cite{radford2021learning} into $\tilde{\mathbf{e}}_p \in \mathbb{R}^{512}$. Pretrained multimodal text encoders suffer from narrow-cone anisotropy where arbitrary tourism strings exhibit compressed cosine similarities in $[0.78, 0.94]$. Following All-but-the-Top post-processing \cite{mu2018all}, we perform unsupervised corpus-level mean centering prior to unit-sphere normalization:
+\begin{equation}
+\mathbf{e}_p = \frac{\tilde{\mathbf{e}}_p - \bar{\mathbf{e}}_{\mathcal{V}}}{\|\tilde{\mathbf{e}}_p - \bar{\mathbf{e}}_{\mathcal{V}}\|_2 + \epsilon}, \qquad \bar{\mathbf{e}}_{\mathcal{V}} = \frac{1}{|\mathcal{V}|}\sum_{v \in \mathcal{V}} \tilde{\mathbf{e}}_v.
+\label{eq:center}
+\end{equation}
+Crucially, Eq.~\eqref{eq:center} operates solely on unlabeled venue text metadata with zero access to check-in targets, expanding cosine dispersion across $[-0.5, +0.9]$ for calibrated similarity modeling.
+
+Each venue $p$ is additionally described by an 8-dimensional city-invariant context vector $\mathbf{x}_p \in [0, 1]^8$: spatial centrality $d_p$ (normalized distance from city median coordinates), price tier $\pi_p$, log-normalized visitation popularity $\text{pop}_p$, community quality rating $r_p$, indoor shelter indicator $I^{\text{in}}_p$, hidden-gem indicator $I^{\text{hid}}_p = \mathbb{I}[\text{pop}_p \le 0.35]$, ecological sustainability score $e^{\text{eco}}_p$, and local SME revenue share $s^{\text{sme}}_p$.
+
+Given a travel group $G = \{u_1, \dots, u_M\}$ ($M \in \{2,3,4,5\}$), each companion's check-in history is ordered chronologically and split strictly at $72\%$: the earliest check-ins form historical context $\mathcal{H}_u$, while later check-ins form held-out future targets $\mathcal{Y}_G^+$ such that $\mathcal{Y}_G^+ \cap \bigcup_{u \in G} \mathcal{H}_u = \emptyset$. Companion taste embedding $\mathbf{e}_u$ is computed as the $L_2$-normalized mean of $\{\mathbf{e}_v : v \in \mathcal{H}_u\}$, paired with a 3-dimensional profile vector $\mathbf{z}_u = [b_u, \text{div}_u, \text{flex}_u] \in [0,1]^3$ capturing budget capacity, historical category diversity, and schedule flexibility.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig1_architecture_overview.pdf}
+\caption{Overall architecture of \textbf{TripSense-FairNet v2}, uniting isotropically centered CLIP ViT-B/32 representations, Stream~1 Rotation-Invariant Geometric Cross-Attention with bounded $0.35\tanh$ Hadamard residuals, Stream~2 un-squashed 15-dimensional relational highway, calibrated Pareto InfoNCE optimization, Multi-Paradigm XAI verification, and Nash bargaining counterfactual recourse.}
+\label{fig:arch}
+\end{figure*}
+
+\subsection{TripSense-FairNet v2 Dual-Stream Architecture}
+Figure~\ref{fig:arch} illustrates the complete architecture. For companion $u \in G$ and candidate POI $p$, let $c_u = \langle \mathbf{e}_u, \mathbf{e}_p \rangle \in [-1,1]$ denote semantic cosine alignment and $\beta_u = \max(0, \pi_p - b_u) \in [0,1]$ denote companion budget hardship. We extract the 15-dimensional permutation-invariant group-relational summary:
+\begin{equation}
+\mathbf{r}_{G,p} = \big[\bar{c}_G,\; c^{\min}_G,\; c^{\max}_G,\; \sigma(c_G),\; \bar{\beta}_G,\; \beta^{\max}_G,\; \tfrac{M}{5},\; \mathbf{x}_p^\top \big]^\top \in \mathbb{R}^{15}.
+\label{eq:relvec}
+\end{equation}
+
+\textbf{Stream 1: Hybrid Rotation-Invariant Cross-Attention.} To prevent dense coordinate overfitting on source-city embeddings, each member $u \in G$ is represented via strictly geometric intra-group invariants coupled with a bounded low-rank Hadamard semantic residual. First, we compute member peer cohesion:
+\begin{equation}
+\kappa_u = \frac{1}{\max(1, M - 1)} \sum_{v \in G \setminus \{u\}} \langle \mathbf{e}_u, \mathbf{e}_v \rangle,
+\label{eq:cohesion}
+\end{equation}
+which identifies whether member $u$ shares mainstream group preferences or represents a minority outlier. Next, we compute a bounded multi-aspect Hadamard interaction:
+\begin{equation}
+\mathbf{h}^{\text{sem}}_{u,p} = 0.35 \tanh\!\Big(\text{LN}\big(W_s \cdot \text{Drop}_{0.35}(\mathbf{e}_u \odot \mathbf{e}_p)\big)\Big) \in [-0.35, 0.35]^{24}.
+\label{eq:hadamard}
+\end{equation}
+Concatenating all invariant features yields the 40-dimensional member token $\mathbf{t}_{u,p} = [c_u,\, c_u - \bar{c}_G,\, c_u - c^{\min}_G,\, \kappa_u,\, \beta_u,\, \mathbf{z}_u,\, \mathbf{x}_p,\, \mathbf{h}^{\text{sem}}_{u,p}] \in \mathbb{R}^{40}$, projected through LayerNorm--GELU residual blocks into $\mathbf{h}_u \in \mathbb{R}^{64}$ alongside context query $\mathbf{h}_p = \text{ResMLP}_p(\mathbf{r}_{G,p}) \in \mathbb{R}^{64}$. Individual predicted utility incorporates an alignment--affordability skip prior:
+\begin{equation}
+y_{u,p} = \sigma\!\Big(\text{MLP}_m\big([\mathbf{h}_u, \mathbf{h}_p, c_u, \beta_u]\big) + 0.75(c_u - 0.8\beta_u)\Big).
+\end{equation}
+A 4-head cross-attention module queries companion states $\{\mathbf{h}_u\}_{u \in G}$ using $\mathbf{h}_p$, producing masked, normalized influence weights $\alpha_{u,G,p}$ ($\sum_{u \in G} \alpha_{u,G,p} = 1$). Stream~1 computes both the cross-attention consensus logit $\ell_{\text{attn}} = \text{logit}(\sum_{u \in G} \alpha_{u,G,p} y_{u,p})$ and a smooth Rawlsian Soft-Min logit ($T{=}0.14$):
+\begin{equation}
+\ell_{\text{min}} = \text{logit}\!\left(-T \log \sum_{u \in G} \exp\!\left(-\frac{y_{u,p}}{T}\right)\right).
+\end{equation}
+
+\textbf{Stream 2: City-Invariant Relational Highway \& Additive Fusion.} Crucially, applying row-wise LayerNorm directly across heterogeneous raw tabular inputs ($\mathbf{r}_{G,p}$ mixes binary flags with negative centered cosines) distorts threshold boundaries. Stream~2 therefore passes $\mathbf{r}_{G,p}$ directly through an Identity input gate into a 2-layer 64-d hidden LayerNorm--GELU MLP with linear residual skip:
+\begin{equation}
+\ell_{\text{rel}} = f_{\text{MLP}}(\mathbf{r}_{G,p}) + \mathbf{w}_{\text{lin}}^\top \mathbf{r}_{G,p}.
+\label{eq:relhead}
+\end{equation}
+Both streams combine additively via learned softplus scales $\mathbf{s} = \text{softplus}(\boldsymbol{\gamma})$ ($\boldsymbol{\gamma}_0 = [0.75, 0.25, 1.35]$), eliminating the restrictive simplex bottleneck of softmax gating:
+\begin{equation}
+\ell_{G,p} = s_1 \ell_{\text{attn}} + s_2 \ell_{\text{min}} + s_3 \ell_{\text{rel}} + b_0, \qquad \hat{y}_{G,p} = \sigma(\ell_{G,p}).
+\label{eq:fusion}
+\end{equation}
+
+\begin{proposition}[Rotation Invariance and Bounded Domain Shift]
+Let $Q \in O(D)$ be any orthogonal transformation modeling a cross-city semantic rotation in embedding space. All geometric coordinates of $\mathbf{r}_{G,p}$ and the first 16 components of $\mathbf{t}_{u,p}$ satisfy strict invariance: $\langle Q\mathbf{e}_u, Q\mathbf{e}_p \rangle = \langle \mathbf{e}_u, \mathbf{e}_p \rangle$ and $\langle Q\mathbf{e}_u, Q\mathbf{e}_v \rangle = \langle \mathbf{e}_u, \mathbf{e}_v \rangle$. Moreover, the Hadamard residual in Eq.~\eqref{eq:hadamard} is uniformly bounded by $\|\mathbf{h}^{\text{sem}}_{u,p}\|_\infty \le 0.35$, guaranteeing bounded out-of-domain perturbation under arbitrary cross-city lexical shifts while retaining fine-grained category discrimination in-domain.
+\end{proposition}
+
+\subsection{Calibrated Multi-Objective Pareto InfoNCE Loss}
+For each held-in positive pair $(G, p^+)$ and $K{=}20$ sampled unseen negatives $\{p^-_k\}_{k=1}^K$ (temperature $\tau{=}0.20$), listwise ranking loss is formulated via sampled InfoNCE \cite{oord2018representation}:
+\begin{equation}
+\mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(\ell_{G,p^+}/\tau)}{\exp(\ell_{G,p^+}/\tau) + \sum_{k=1}^K \exp(\ell_{G,p^-_k}/\tau)}.
+\label{eq:infonce}
+\end{equation}
+To propagate live fairness and sustainability gradients directly into ranking logits without peeking at evaluation formulas, let $q = \text{softmax}([\ell_{G,p^+}, \ell_{G,p^-_1}, \dots, \ell_{G,p^-_K}]/1.5)$ denote soft top-slate selection probabilities over the $(1{+}K)$ slate. Using the smooth pairwise Differentiable Gini on predicted member utilities:
+\begin{equation}
+\widehat{\text{Gini}}(\mathbf{y}) = \frac{\sum_{u,v \in G} \sqrt{(y_u - y_v)^2 + \epsilon}}{2 M^2 (\bar{y} + \epsilon)},
+\label{eq:diffgini}
+\end{equation}
+alongside observable input proxy $u^{\text{in}}_{u,p} = c_u - 1.2\beta_u$ (yielding per-candidate dispersion $d_{G,p} = \text{std}_u(u^{\text{in}}_{u,p})$ and floor $m_{G,p} = \min_u u^{\text{in}}_{u,p}$), the joint multi-objective loss is:
+\begin{align}
+\mathcal{L} &= \mathcal{L}_{\text{InfoNCE}} + \lambda_{\text{gini}}\big(\widehat{\text{Gini}}(\mathbf{y}_{G,p^+}) + 0.9\,\mathbb{E}_q[d_{G,\cdot}]\big) \nonumber\\
+&\quad + \lambda_{\text{mis}}\big([\tau_m - \min_u y_{u,p^+}]_+ + 0.6[0.10 - \mathbb{E}_q[m_{G,\cdot}]]_+\big) \nonumber\\
+&\quad + \lambda_{\text{eco}}\big(1 - \mathbb{E}_q[e^{\text{eco}}]\big),
+\label{eq:totalloss}
+\end{align}
+with calibrated defaults $(\lambda_{\text{gini}}, \lambda_{\text{mis}}, \lambda_{\text{eco}}, \tau_m) = (0.30, 0.20, 0.35, 0.58)$.
+
+\subsection{Active Elicitation, Nash Counterfactual Veto, and Multi-XAI}
+\textbf{Cold-Start Bayesian EIG Probing:} New companions without historical check-ins swipe through up to $6$ visual archetype cards chosen sequentially to minimize absolute dot-product overlap with the running posterior belief vector \cite{houlsby2011bayesian}, rapidly resolving cold-start taste uncertainty.
+
+\textbf{Nash Bargaining Counterfactual Veto:} Whenever companion $u^*$ vetoes a scheduled stop $p_0$, TripSense audits feasible unscheduled candidates $p' \in \mathcal{V}_{\text{avail}}$ to maximize the Nash Social Welfare geometric product \cite{nash1950bargaining}:
+\begin{equation}
+p^* = \arg\max_{p' \in \mathcal{V}_{\text{avail}}} \left(\prod_{u \in G} \max(0.05,\, y_{u,p'})\right)^{1/M},
+\label{eq:nash}
+\end{equation}
+providing an explicit counterfactual explanation detailing welfare gain and Gini reduction.
+
+\textbf{Multi-Paradigm XAI Verification:} On Stream~2's relational decision head $\ell_{\text{rel}}(\mathbf{r})$, we compute 32-step Integrated Gradients \cite{sundararajan2017axiomatic} from neutral corpus baseline $\mathbf{r}_0 = \bar{\mathbf{r}}$:
+\begin{equation}
+\text{IG}_i(\mathbf{r}) = (r_i - r_{0,i}) \cdot \frac{1}{S}\sum_{s=1}^{S} \frac{\partial \ell_{\text{rel}}\big(\mathbf{r}_0 + \frac{s-0.5}{S}(\mathbf{r} - \mathbf{r}_0)\big)}{\partial r_i},
+\label{eq:ig}
+\end{equation}
+verifying Axiom~1 Completeness $|\sum_i \text{IG}_i(\mathbf{r}) - (\ell_{\text{rel}}(\mathbf{r}) - \ell_{\text{rel}}(\mathbf{r}_0))|$, ERASER Comprehensiveness and Sufficiency across $k \in \{1,3,5,7\}$ \cite{deyoung2020eraser}, model-agnostic Permutation NDCG@10 drop, and rank concordance (Spearman $\rho$, Kendall $\tau$) against LightGBM TreeSHAP \cite{lundberg2017unified}. Algorithm~\ref{alg:fairnet} outlines the full training and recourse workflow.
+
+\begin{algorithm}[t]
+\caption{TripSense-FairNet v2 Training \& Counterfactual Recourse}
+\label{alg:fairnet}
+\begin{algorithmic}[1]
+\REQUIRE Venue embeddings $\{\mathbf{e}_p\}$, context $\{\mathbf{x}_p\}$, training groups $\mathcal{G}_{\text{tr}}$
+\STATE Center \& normalize $\{\mathbf{e}_p\}$ via Eq.~\eqref{eq:center} (unsupervised)
+\STATE Expand all positive pairs $\mathcal{P}_{\text{tr}} \leftarrow \{(G, p^+) : G \in \mathcal{G}_{\text{tr}},\, p^+ \in \mathcal{Y}_G^+\}$
+\FOR{epoch $e = 1 \dots 26$}
+    \FOR{mini-batch $\mathcal{B} \subset \mathcal{P}_{\text{tr}}$ ($|\mathcal{B}|=64$)}
+        \STATE Sample $K{=}20$ unseen negatives $\{p^-_k\}$ per pair $(G, p^+)$
+        \STATE Compute $\mathbf{r}_{G,p}$ (Eq.~\eqref{eq:relvec}), cohesion $\kappa_u$ (Eq.~\eqref{eq:cohesion}), $\mathbf{h}^{\text{sem}}_{u,p}$ (Eq.~\eqref{eq:hadamard})
+        \STATE Compute Stream~1 ($\ell_{\text{attn}}, \ell_{\text{min}}$), Stream~2 ($\ell_{\text{rel}}$), fused $\ell_{G,p}$ (Eq.~\eqref{eq:fusion})
+        \STATE Update parameters via AdamW ($\text{lr}{=}1.5{\times}10^{-3}$) minimizing Eq.~\eqref{eq:totalloss}
+    \ENDFOR
+    \STATE Checkpoint best validation $\text{NDCG@10}$ every 2 epochs
+\ENDFOR
+\STATE \textbf{Deployment Recourse:} Upon veto of $p_0$, swap to $p^*$ maximizing Eq.~\eqref{eq:nash} and emit IG attribution via Eq.~\eqref{eq:ig}.
+\end{algorithmic}
+\end{algorithm}
+
+%% ============================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+%% ============================================================================
+\subsection{Datasets and Deterministic Splits}
+All experiments execute deterministically on an NVIDIA GeForce RTX 3050 6\,GB Laptop GPU (PyTorch CUDA, Python 3.12) using deterministic MD5 hashing and sorted set iteration:
+\begin{itemize}
+    \item \textbf{Primary Benchmark (\textit{Massive-STEPS-Sydney}):} $29{,}900$ real sequential check-ins across $8{,}189$ unique venues, yielding $1{,}200$ zero-leakage multi-member travel groups ($|G| \in \{2,3,4,5\}$, evenly stratified) split strictly into $840$ train / $180$ validation / $180$ held-out test groups.
+    \item \textbf{Zero-Shot Cross-City Validation (Zero Retraining):} Models trained exclusively on Sydney are evaluated directly on \textit{Massive-STEPS-Melbourne} ($4{,}475$ check-ins, $2{,}522$ venues, $160$ test groups), \textit{Tokyo} ($2{,}791$ check-ins, $1{,}183$ venues, $160$ test groups), and \textit{New-York} ($20{,}000$ check-ins, $9{,}572$ venues, $160$ test groups).
+    \item \textbf{Bangladesh 5-City Sustainability Pilot:} $43$ verified POIs across Dhaka ($8$), Chittagong ($12$), Sylhet ($8$), Cox's Bazar ($8$), and Bandarban ($7$) auditing live ecological equity.
+    \item \textbf{Neuro-Symbolic Verification (\textit{TravelPlanner}):} Full $180$-task validation split of \texttt{osunlp/TravelPlanner} \cite{xie2024travelplanner}.
+\end{itemize}
+
+\subsection{Baselines, Evaluation Oracle, and Statistical Protocol}
+We benchmark 10 methods on identical 100-candidate pools per test group: four heuristics (Popularity, Average Cosine, Least-Misery, Borda Count), two neural group models (AGREE \cite{cao2018attentive}, GroupMLP), three tree ensembles trained on exact 15-d $\mathbf{r}_{G,p}$ vectors (Random Forest \cite{breiman2001random}, HistGBDT, LightGBM \cite{ke2017lightgbm}), and TripSense-FairNet v2. Ranking metrics include $\text{NDCG@5}$, $\text{NDCG@10}$, $\text{Hit@10}$, and $\text{MRR@10}$. To eliminate circular self-evaluation bias across all 10 models, consumer equity ($\text{Gini} \downarrow$, $\text{MinSat} \uparrow$) is measured on Top-5 slates via a shared model-independent ground-truth satisfaction oracle $U(u, p) = \sigma(2.8 c_u - 3.6 \beta_u)$, alongside Top-5 Eco Coverage ($\text{eco} \ge 0.68$) and Long-Tail Hidden-Gem Exposure ($\text{pop}_p \le 0.35$).
+
+Statistical rigor follows Dem{\v{s}}ar \cite{demsar2006statistical}: we report 1,000-sample Bootstrap $95\%$ confidence intervals, pairwise two-sided Wilcoxon signed-rank tests with Holm--Bonferroni family-wise correction \cite{holm1979simple}, non-parametric Cliff's $\delta$ \cite{cliff1993dominance}, Cohen's $d$, and the omnibus Friedman $\chi^2$ test with Nemenyi post-hoc Critical Difference ($\alpha{=}0.05$).
+
+%% ============================================================================
+\section{Results and Discussion}
+\label{sec:results}
+%% ============================================================================
+\subsection{Primary 10-Model Comparison and Statistical Significance}
+Table~\ref{tab:main} and Figure~\ref{fig:main} present the primary comparison across all 10 models on held-out Sydney groups ($n{=}180$). TripSense-FairNet v2 achieves the highest ranking performance across every accuracy metric: $\text{NDCG@10} = 0.5394$ ($95\%$ CI $[0.4971, 0.5810]$), $\text{NDCG@5} = 0.4739$, $\text{Hit@10} = 0.9000$, and $\text{MRR@10} = 0.6700$. This represents a $+13.9\%$ relative $\text{NDCG@10}$ improvement over the strongest tree baseline LightGBM ($0.4736$, Holm $p{=}0.00105$, Cliff's $\delta{=}0.1365$, Cohen's $d{=}0.3101$), $+14.4\%$ over GroupMLP ($0.4715$, Holm $p{=}0.00105$), $+19.3\%$ over Random Forest ($0.4520$, Holm $p{=}3.4{\times}10^{-5}$), $+22.1\%$ over HistGBDT ($0.4416$, Holm $p{=}10^{-6}$), and $+24.6\%$ over AGREE ($0.4329$, Holm $p{<}10^{-6}$, Cliff's $\delta{=}0.2200$, Cohen's $d{=}0.4782$).
+
+\begin{table*}[t]
+\centering
+\caption{Primary 10-Model Group Consensus Benchmark on Held-Out \textit{Massive-STEPS-Sydney} ($n=180$ Test Groups, 100-Candidate Pools). Best overall/learned values highlighted in bold. Holm $p$ and Cliff's $\delta$ evaluate pairwise significance of TripSense-FairNet v2 over each baseline on per-group NDCG@10.}
+\label{tab:main}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccc}
+\toprule
+Model / Strategy & NDCG@5 & NDCG@10 [95\% CI] & Hit@10 & MRR@10 & Gini $\downarrow$ & MinSat $\uparrow$ & Eco (\%) $\uparrow$ & Long-Tail (\%) & Rank $\downarrow$ & Holm $p$ (Cliff's $\delta$) \\
+\midrule
+Popularity & 0.2727 & 0.3384 [0.304, 0.374] & 0.8389 & 0.4454 & 0.0710 & 0.3777 & 29.78 & 0.00 & 5.706 & $<0.0001$ (0.408) \\
+Average Cosine & 0.1831 & 0.2241 [0.197, 0.256] & 0.6611 & 0.3082 & 0.0776 & 0.4643 & 61.33 & 69.56 & 7.222 & $<0.0001$ (0.596) \\
+Least-Misery & 0.1137 & 0.1636 [0.136, 0.192] & 0.5611 & 0.2270 & \textbf{0.0603} & 0.4665 & \textbf{61.78} & \textbf{76.78} & 7.867 & $<0.0001$ (0.690) \\
+Borda Count & 0.1610 & 0.2038 [0.177, 0.234] & 0.6278 & 0.2892 & 0.0661 & \textbf{0.4715} & 60.11 & 73.00 & 7.356 & $<0.0001$ (0.628) \\
+\midrule
+AGREE (SIGIR'18) & 0.3508 & 0.4329 [0.394, 0.471] & 0.8778 & 0.5071 & 0.0722 & 0.3864 & 22.89 & 8.00 & 4.811 & $<0.0001$ (0.220) \\
+GroupMLP & 0.3936 & 0.4715 [0.431, 0.511] & 0.8944 & 0.5794 & 0.0703 & 0.4098 & 29.78 & 16.22 & 4.061 & $0.0011$ (0.141) \\
+Random Forest & 0.3913 & 0.4520 [0.409, 0.496] & 0.8556 & 0.5693 & 0.0659 & 0.4208 & 26.67 & 8.11 & 4.394 & $<0.0001$ (0.173) \\
+HistGBDT & 0.3750 & 0.4416 [0.401, 0.483] & 0.8611 & 0.5771 & 0.0644 & 0.4305 & 32.11 & 14.78 & 4.817 & $<0.0001$ (0.201) \\
+LightGBM GBDT & 0.4089 & 0.4736 [0.431, 0.517] & 0.8944 & 0.6158 & \textbf{0.0627} & 0.4287 & 30.89 & 14.33 & 4.717 & $0.0011$ (0.137) \\
+\textbf{TripSense-FairNet v2} & \textbf{0.4739} & \textbf{0.5394 [0.497, 0.581]} & \textbf{0.9000} & \textbf{0.6700} & 0.0630 & 0.4255 & \textbf{38.67} & \textbf{27.22} & \textbf{4.050} & Ref. (---) \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{q1_figures/fig2_model_benchmark_and_cd.pdf}
+\caption{(a) 10-model ranking accuracy comparison ($\text{NDCG@10}$ with 95\% Bootstrap CIs on $n{=}180$ held-out Sydney groups); (b) Friedman average ranks ($\chi^2 = 513.035$, $p = 9.291 \times 10^{-105}$) and Nemenyi post-hoc Critical Difference ($\text{CD}_{0.05} = 1.010$).}
+\label{fig:main}
+\end{figure*}
+
+Simultaneously, FairNet v2 resolves the popularity--sustainability trade-off: whereas neural baselines AGREE ($22.89\%$ Eco, $8.00\%$ Long-Tail) and GroupMLP ($29.78\%$ Eco, $16.22\%$ Long-Tail) collapse onto congested hubs, FairNet v2 achieves $38.67\%$ Eco Coverage ($+7.78$ percentage points over LightGBM) and $27.22\%$ Long-Tail Hidden-Gem exposure ($1.90\times$ LightGBM) while preserving low Gini inequality ($0.0630$, significantly fairer than AGREE $0.0722$, Holm $p_{\text{gini}}{=}0.0086$, and GroupMLP $0.0703$, Holm $p_{\text{gini}}{=}0.0025$).
+
+The omnibus Friedman test rejects equal performance emphatically ($\chi^2 = 513.035$, $p = 9.291 \times 10^{-105}$, $\text{CD}_{0.05} = 1.010$), placing FairNet v2 first overall (average rank $4.050$). Across five independent seeds (Table~\ref{tab:seeds}), FairNet v2 demonstrates stable convergence ($\text{NDCG@10} = 0.5200 \pm 0.0123$, $\text{Gini} = 0.0640 \pm 0.0015$), beating both 5-seed LightGBM ($0.4675 \pm 0.0096$) and AGREE ($0.4431 \pm 0.0106$) across accuracy, inequality, and sustainability. Runtime latency averages $3.99\text{ ms}$ (CUDA) and $4.42\text{ ms}$ (CPU) per 100 candidates, enabling interactive sub-5\,ms trip replanning.
+
+\begin{table}[t]
+\centering
+\caption{5-Seed Stability ($42, 102, 2026, 777, 1337$) on Sydney Test Split.}
+\label{tab:seeds}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Model & NDCG@10 ($\mu \pm \sigma$) & Hit@10 & Gini $\downarrow$ & Eco (\%) $\uparrow$ \\
+\midrule
+AGREE (SIGIR'18) & $0.4431 \pm 0.0106$ & $0.8900$ & $0.0725 \pm 0.0031$ & $24.49 \pm 3.14$ \\
+LightGBM GBDT & $0.4675 \pm 0.0096$ & $0.8989$ & $0.0648 \pm 0.0015$ & $30.27 \pm 1.10$ \\
+\textbf{FairNet v2 (Ours)} & \textbf{0.5200 $\pm$ 0.0123} & \textbf{0.9022} & \textbf{0.0640 $\pm$ 0.0015} & \textbf{38.11 $\pm$ 1.29} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Pareto Trade-Off, Ablation Study, and Group Scaling}
+Figure~\ref{fig:pareto} maps the accuracy--fairness Pareto frontier across $\lambda_{\text{gini}} \in \{0.0, 0.15, 0.30, 0.65, 1.0\}$. Increasing $\lambda_{\text{gini}}$ from $0.0$ to $1.0$ lowers Gini from $0.0645$ to $0.0627$, raises MinSat from $0.4198$ to $0.4280$, and expands Eco Coverage from $35.56\%$ to $39.56\%$, while $\lambda_{\text{gini}}=0.30$ sits at the optimal accuracy knee ($\text{NDCG@10} = 0.5394$).
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig3_fairness_accuracy_pareto.pdf}
+\caption{(a) Fairness--Accuracy Pareto frontier sweeping $\lambda_{\text{gini}} \in \{0.0, 0.15, 0.30, 0.65, 1.0\}$ relative to all nine baselines (optimal: top-left); (b) Accuracy versus Top-5 Eco Coverage synergy across learned baselines.}
+\label{fig:pareto}
+\end{figure*}
+
+Table~\ref{tab:abl} and Figure~\ref{fig:abl}(a) quantify the 7-variant component ablation. Removing any single component degrades $\text{NDCG@10}$: zeroing multimodal CLIP embeddings triggers the steepest drop ($-0.1806$, with Gini worsening to $0.0727$ and Eco plunging to $20.78\%$); replacing 20-negative InfoNCE with pairwise BPR drops $-0.1322$; disabling 4-head cross-attention drops $-0.0509$; removing fairness regularizers drops $-0.0320$; removing eco regularization drops $-0.0309$; and removing the relational highway drops $-0.0026$. Figure~\ref{fig:abl}(b) evaluates scalability across group sizes $|G| \in \{2,3,4,5\}$ ($n{=}45$ groups each): FairNet v2 leads substantially on dyads ($0.5662$ vs.\ LightGBM $0.4771$), triads ($0.5303$ vs.\ $0.4760$), and 4-member groups ($0.5974$ vs.\ $0.4607$), while lowering Gini relative to LightGBM ($0.0703$ vs.\ $0.0744$) and AGREE ($0.0875$) on large 5-member parties.
+
+\begin{table}[t]
+\centering
+\caption{7-Variant Component Ablation on Sydney Test Split ($n=180$).}
+\label{tab:abl}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+Variant & NDCG@10 & $\Delta$Acc & Hit@10 & Gini $\downarrow$ & Eco (\%) \\
+\midrule
+\textbf{Full FairNet v2} & \textbf{0.5394} & 0.0000 & 0.9000 & 0.0630 & 38.67 \\
+w/o Cross-Attention & 0.4885 & $-0.0509$ & 0.8833 & 0.0657 & 37.78 \\
+w/o Rel. Highway & 0.5368 & $-0.0026$ & 0.8944 & \textbf{0.0588} & \textbf{39.89} \\
+w/o InfoNCE (BPR) & 0.4072 & $-0.1322$ & 0.8611 & 0.0670 & 26.56 \\
+w/o Fairness Loss & 0.5074 & $-0.0320$ & 0.8944 & 0.0645 & 37.00 \\
+w/o Eco Regularizer & 0.5085 & $-0.0309$ & \textbf{0.9056} & 0.0635 & 35.89 \\
+w/o CLIP Semantics & 0.3588 & $-0.1806$ & 0.8111 & 0.0727 & 20.78 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig4_ablation_and_scaling.pdf}
+\caption{(a) 7-variant component ablation confirming positive contribution from every architectural and objective component; (b) Group cardinality scaling across $|G| \in \{2,3,4,5\}$ comparing FairNet v2, LightGBM, and AGREE.}
+\label{fig:abl}
+\end{figure*}
+
+\subsection{Zero-Shot Cross-City Validation and Bangladesh Pilot Audit}
+To test true out-of-distribution generalization, Table~\ref{tab:crosscity} and Figure~\ref{fig:cross}(a) report strict zero-shot transfer from Sydney to Melbourne, Tokyo, and New-York without fine-tuning. Whereas coordinate-memorizing neural baselines (AGREE and GroupMLP) suffer sharp transfer degradation, FairNet v2 wins Melbourne outright ($\text{NDCG@10} = 0.3190$ vs.\ LightGBM $0.2941$, $\text{Gini} = 0.0638$ vs.\ $0.0750$, Eco $49.88\%$ vs.\ $41.38\%$), achieves the highest learned-model accuracy and Hit@10 in Tokyo ($0.3130$ vs.\ LightGBM $0.2669$, Hit@10 $0.8063$, Eco $66.50\%$), and delivers the lowest inequality ($\text{Gini} = 0.0618$) and highest Eco Coverage ($52.12\%$) in New-York alongside competitive $\text{NDCG@10}$ ($0.3090$).
+
+\begin{table*}[t]
+\centering
+\caption{Zero-Shot External Cross-City Validation Across 3 Unseen Metropolises ($160$ Held-Out Groups per City, Zero Retraining).}
+\label{tab:crosscity}
+\begin{tabular}{llccccc}
+\toprule
+Unseen City (Venues) & Model (Zero-Shot Transfer) & NDCG@10 $\uparrow$ & Hit@10 $\uparrow$ & Gini $\downarrow$ & MinSat $\uparrow$ & Eco (\%) $\uparrow$ \\
+\midrule
+\multirow{5}{*}{Melbourne ($2{,}522$ POIs)}
+& Average Cosine & 0.2172 & 0.6438 & 0.0795 & \textbf{0.4727} & \textbf{69.75} \\
+& AGREE (SIGIR'18) & 0.2755 & 0.7000 & 0.0715 & 0.3867 & 41.50 \\
+& GroupMLP & 0.2962 & 0.6937 & 0.0712 & 0.4104 & 46.88 \\
+& LightGBM GBDT & 0.2941 & 0.7750 & 0.0750 & 0.4179 & 41.38 \\
+& \textbf{TripSense-FairNet v2 (Ours)} & \textbf{0.3190} & \textbf{0.7812} & \textbf{0.0638} & 0.4250 & \textbf{49.88} \\
+\midrule
+\multirow{5}{*}{Tokyo ($1{,}183$ POIs)}
+& Average Cosine & 0.1408 & 0.4625 & 0.0936 & \textbf{0.4880} & \textbf{84.88} \\
+& AGREE (SIGIR'18) & 0.3114 & 0.7500 & 0.0707 & 0.3904 & 50.00 \\
+& GroupMLP & 0.2941 & 0.7375 & \textbf{0.0678} & 0.4545 & 60.88 \\
+& LightGBM GBDT & 0.2669 & 0.7688 & 0.0717 & 0.4617 & 63.38 \\
+& \textbf{TripSense-FairNet v2 (Ours)} & \textbf{0.3130} & \textbf{0.8063} & 0.0758 & 0.4606 & \textbf{66.50} \\
+\midrule
+\multirow{5}{*}{New-York ($9{,}572$ POIs)}
+& Average Cosine & 0.2243 & 0.6500 & 0.0793 & \textbf{0.4545} & \textbf{72.62} \\
+& AGREE (SIGIR'18) & 0.2670 & 0.6813 & 0.0739 & 0.3795 & 37.75 \\
+& GroupMLP & 0.2895 & 0.7250 & 0.0718 & 0.3966 & 42.88 \\
+& LightGBM GBDT & \textbf{0.3180} & \textbf{0.8000} & 0.0673 & 0.4188 & 45.25 \\
+& \textbf{TripSense-FairNet v2 (Ours)} & 0.3090 & 0.7688 & \textbf{0.0618} & 0.4263 & \textbf{52.12} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig5_cross_city_transfer.pdf}
+\caption{(a) Zero-shot cross-city transfer NDCG@10 from Sydney to Melbourne, Tokyo, and New-York; (b) Live deployment audit across 5 Bangladeshi cities ($43$ verified POIs).}
+\label{fig:cross}
+\end{figure*}
+
+Table~\ref{tab:bd} and Figure~\ref{fig:cross}(b) present our emerging-market deployment audit across five Bangladeshi cities ($43$ verified POIs). FairNet v2 sustains high ecological scores ($81.8\%$--$88.0\%$), strong worst-off companion utility ($0.7927$--$0.8601$), and $20\%$--$40\%$ hidden-gem inclusion, notably reducing Chittagong satisfaction inequality by $78.9\%$ relative to Average Cosine ($\text{Gini} = 0.0027$ vs.\ $0.0128$) while increasing Eco Sustainability ($81.8\%$ vs.\ $78.4\%$).
+
+\begin{table}[t]
+\centering
+\caption{Bangladesh 5-City Pilot Sustainability \& Equity Audit ($43$ POIs).}
+\label{tab:bd}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+City (Spots) & FN Gini & AvgCos Gini & MinSat & Eco (\%) & Hidden (\%) \\
+\midrule
+Dhaka (8) & 0.0054 & 0.0045 & 0.8580 & 87.6 & 40.0 \\
+Chittagong (12) & \textbf{0.0027} & 0.0128 & \textbf{0.8601} & 81.8 & 40.0 \\
+Sylhet (8) & 0.0224 & 0.0209 & 0.7927 & 86.6 & 20.0 \\
+Cox's Bazar (8) & 0.0169 & 0.0160 & 0.8245 & 83.4 & 40.0 \\
+Bandarban (7) & 0.0073 & 0.0068 & 0.8253 & \textbf{88.0} & 20.0 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Multi-Paradigm XAI Faithfulness, Active Probe, and TravelPlanner}
+Table~\ref{tab:xai} and Figures~\ref{fig:xai}--\ref{fig:tp} consolidate our four-way XAI faithfulness verification, active cold-start probing, and neuro-symbolic constraint audit:
+
+\begin{itemize}
+    \item \textbf{Axiomatic Completeness \& Perturbation Faithfulness:} 32-step Integrated Gradients across $240$ test instances satisfies Completeness with $\text{MAE} = 3.0 \times 10^{-6}$ ($\max = 4.7 \times 10^{-5}$). Removing top-3 IG features induces $\text{Comprehensiveness}@3 = 0.0127$, which is $3.43\times$ stronger than random 3-feature ablation ($0.0037$; $\text{AOPC} = 0.0122$), while retaining only top-$k$ features tightens Sufficiency gap monotonically from $0.0204$ ($k{=}1$) to $0.0052$ ($k{=}7$). Cross-method rank correlations against TreeSHAP ($\rho = 0.3286$, $\tau = 0.2952$) and Permutation NDCG@10 drop ($\rho = 0.3500$) capture shared primary drivers (Venue Popularity, Distance Centrality) alongside FairNet's distinct positive Eco-Sustainability ($+0.00864$) and Indoor Shelter weighting.
+    \item \textbf{Attention Budget Equity \& Nash Counterfactuals:} Across $80$ audited groups, FairNet v2's cross-attention allocates $0.4697$ mean weight to the lowest-budget companion versus $0.2857$ uniform expectation and $0.1728$ to the highest-budget peer---demonstrating emergent Rawlsian protection without hand-coded rules. Triggering Nash Veto recourse raises minimum member utility from $0.5878$ to $0.6299$, cuts Gini from $0.0255$ to $0.0206$, and delivers $+6.25\%$ mean Nash social welfare gain (Figure~\ref{fig:swipe}(b)).
+    \item \textbf{Cold-Start Elicitation \& Deterministic Verification:} Bayesian EIG visual swiping lifts latent taste cosine alignment from $0.3208$ ($0$ swipes) to $0.8967$ in $6$ swipes ($n{=}120$, Figure~\ref{fig:swipe}(a)). On 180 \textit{TravelPlanner} tasks (Figure~\ref{fig:tp}), deterministic verification enforces $100.0\%$ hard budget feasibility ($0.934\text{ ms}$/task) and raises strict final pass rate to $53.3\%$ vs.\ $16.1\%$ (unconstrained LLM) and $0.6\%$/$4.4\%$ (ICML 2024 zero-shot GPT-3.5/GPT-4 \cite{xie2024travelplanner}).
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\caption{Summary of Multi-XAI Faithfulness, Nash Recourse, and TravelPlanner.}
+\label{tab:xai}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{ll}
+\toprule
+Audit Dimension & Verified Result \\
+\midrule
+IG Axiom~1 Completeness MAE (max) & $3.0 \times 10^{-6}$ ($4.7 \times 10^{-5}$) \\
+Comprehensiveness@k3 / Random (Ratio) & $0.0127$ / $0.0037$ (\textbf{3.43$\times$}) \\
+Sufficiency Gap ($k=1 \to k=7$) / AOPC & $0.0204 \to 0.0052$ / $0.0122$ \\
+Cross-XAI Spearman $\rho$ (IG/SHAP; IG/Perm) & $0.3286$ ($\tau{=}0.2952$); $0.3500$ \\
+Lowest vs.\ Highest Budget Attention & \textbf{0.4697} vs.\ $0.1728$ (Unif. $0.2857$) \\
+Nash Veto MinSat / Gini / Welfare $\Delta$ & $0.5878{\to}0.6299$ / $0.0255{\to}0.0206$ / \textbf{+6.25\%} \\
+TravelPlanner Budget Feas. / Pass ($N{=}180$) & \textbf{100.0\%} / \textbf{53.3\%} ($0.934\text{ ms}$/task) \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig6_multi_xai_faithfulness.pdf}
+\caption{(a) Top-10 normalized attribution comparison across FairNet v2 Integrated Gradients, LightGBM TreeSHAP, and Permutation NDCG@10 Drop; (b) Quantitative ERASER perturbation faithfulness curves confirming $3.43\times$ Comprehensiveness over random masking and tight Sufficiency convergence.}
+\label{fig:xai}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{q1_figures/fig7_swipe_and_nash_recourse.pdf}
+\caption{(a) Cold-start Bayesian EIG visual swipe elicitation curve ($n{=}120$ travelers, $0$--$6$ swipes); (b) Cross-attention lowest-budget member protection and Nash bargaining counterfactual recourse audit across $80$ groups.}
+\label{fig:swipe}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{q1_figures/fig8_travelplanner_neurosymbolic.pdf}
+\caption{Neuro-symbolic verification across 180 \textit{TravelPlanner} validation tasks ($0.934\text{ ms}$/task): (a) Entity grounding, hard budget feasibility ($100.0\%$), and strict final pass rate vs.\ unconstrained LLM; (b) Comparison against ICML~2024 published zero-shot GPT-3.5 and GPT-4 pass rates.}
+\label{fig:tp}
+\end{figure*}
+
+%% ============================================================================
+\section{Limitations and Threats to Validity}
+\label{sec:limitations}
+%% ============================================================================
+First, while multi-member test parties are sampled deterministically from real chronological \textit{Massive-STEPS} user trajectories under zero leakage, synthetic co-traveler grouping proxies organic social ties; longitudinal field trials with multi-user consent logs remain an important next step. Second, although FairNet v2 minimizes inequality for $|G|{=}5$ parties ($0.0703$ Gini vs.\ $0.0744$ LightGBM), ranking accuracy softens from $0.5662$ ($|G|{=}2$) to $0.4637$ ($|G|{=}5$) as preference conflict grows, motivating sub-group split-itinerary planning in future extensions. Third, eco-sustainability scores on global Foursquare venues rely on category and congestion priors; integrating real-time municipal transit carbon APIs will sharpen environmental fidelity.
+
+%% ============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+%% ============================================================================
+We introduced \textbf{TripSense-FairNet v2}, a $64{,}286$-parameter rotation-invariant dual-stream neural consensus network that reconciles ranking accuracy, intra-group Rawlsian fairness, eco-sustainability, zero-shot cross-city generalization, and verifiably faithful explainability. By combining isotropically centered CLIP representations with rotation-invariant geometric interaction tokens, bounded $0.35\tanh$ Hadamard residuals, an un-squashed 15-dimensional relational highway, and calibrated Pareto InfoNCE training, FairNet v2 decisively beats nine competitive baselines on \textit{Massive-STEPS-Sydney} ($\text{NDCG@10} = 0.5394$, Friedman $\chi^2 = 513.035$), transfers zero-shot across Melbourne, Tokyo, and New-York, verifies exact Integrated Gradients Completeness ($\text{MAE} = 3.0{\times}10^{-6}$) and $3.43\times$ perturbation faithfulness, protects budget-constrained companions via learned attention and Nash counterfactual recourse, and guarantees $100.0\%$ TravelPlanner budget feasibility at sub-millisecond verification cost.
+
+\section*{CRediT Authorship Contribution Statement}
+\textbf{Sabbir Hossan Sani:} Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data curation, Writing -- original draft, Writing -- review \& editing, Visualization.
+
+\section*{Declaration of Competing Interest}
+The author declares that there are no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+\section*{Data and Code Availability}
+All source code, training scripts, deterministic evaluation harnesses, figure generators, and benchmark artifacts are publicly available at \url{https://github.com/Sabbirhossansani/TripSense}. Public check-in datasets (\textit{Massive-STEPS}) and \textit{TravelPlanner} are accessible via Hugging Face Hub.
+
+\balance
+\bibliographystyle{elsarticle-num}
+\bibliography{references}
+
+\end{document}

@@ -20,8 +20,9 @@
 
 **Author:** [Sabbirhossansani](https://github.com/Sabbirhossansani) (`sani2305101776@diu.edu.bd`) — Department of Software Engineering, Daffodil International University
 
-**Research Manuscripts & Figures:**
-- [Q1 Journal Manuscript (LaTeX / Elsevier `elsarticle`)](docs/TripSense_Q1_Manuscript.tex) • [BibTeX References](docs/references.bib)
+**Research Manuscripts, Elsevier Submission Package & Figures:**
+- [Elsevier 2-Column Journal PDF (`elsarticle 5p, twocolumn`, 10 pages)](docs/TripSense_Elsevier_2Col_Manuscript.pdf) • [Elsevier Submission LaTeX ZIP (`.tex`, `.bbl`, `.bib`, Anonymous Review, Highlights, Title Page, Figures)](docs/TripSense_Elsevier_Submission.zip)
+- [Elsevier 2-Column LaTeX Source](docs/TripSense_Elsevier_2Col_Manuscript.tex) • [BibTeX References](docs/references.bib)
 - [Q1 Journal Manuscript (Markdown)](docs/TripSense_Q1_Manuscript.md) • [Word (.docx) with 300-DPI Figures](docs/TripSense_Q1_Manuscript.docx)
 - [Publication Figures (300-DPI PNG & Vector PDF)](docs/q1_figures/)
 
