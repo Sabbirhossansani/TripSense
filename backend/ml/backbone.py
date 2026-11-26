@@ -1,14 +1,14 @@
 """
-Latest Pretrained Vision-Language Backbone Encoder for TripSense.
-Uses Google SigLIP (google/siglip-base-patch16-224) on CUDA GPU when available,
-with graceful fallback to CLIP / BGE if offline or incompatible.
-Encodes:
-  - TripSense POIs (bangladesh_spots.json + global_spots.json) -> artifacts/poi_embeddings.npz
-  - 12 Active-Learning Swipe Deck cards -> artifacts/swipe_embeddings.npz
-  - Massive-STEPS-Sydney benchmark POIs -> data_cache/steps_poi_emb.npy
+Pretrained Multimodal & Semantic Backbone Encoder for TripSense.
+Supports:
+  - openai/clip-vit-base-patch32 (512-d, Vision-Language CLIP)
+  - google/siglip-base-patch16-224 (768-d, Google SigLIP)
+  - BAAI/bge-base-en-v1.5 (768-d, Dense Retrieval Text Encoder)
+Encodes TripSense POIs, Active-Learning Swipe Deck cards, and multi-city POIs.
 """
 
 import os
+import re
 import json
 import numpy as np
 import torch
@@ -147,20 +147,33 @@ SWIPE_CARDS_CATALOG: List[Dict[str, Any]] = [
 ]
 
 
+def _resolve_hf_token() -> str:
+    tok = os.getenv("HF_TOKEN", "").strip()
+    if tok and tok.startswith("hf_"):
+        return tok
+    tf = os.path.join(BASE_DIR, "HF_token.txt")
+    if os.path.exists(tf):
+        m = re.search(r"(hf_[A-Za-z0-9]+)", open(tf, "r", encoding="utf-8").read())
+        if m:
+            return m.group(1)
+    return ""
+
+
 class SigLIPBackbone:
     """
-    Wraps pretrained SOTA multimodal backbone (google/siglip-base-patch16-224)
-    to produce L2-normalized semantic embeddings for POIs and Swipe Cards.
+    Wraps pretrained foundation encoders (CLIP, SigLIP, BGE) to produce
+    L2-normalized semantic embeddings for POIs and Swipe Cards.
     """
 
     PREFERRED_MODELS = [
         "openai/clip-vit-base-patch32",
         "google/siglip-base-patch16-224",
-        "BAAI/bge-small-en-v1.5",
+        "BAAI/bge-base-en-v1.5",
     ]
 
-    def __init__(self, device: str = None):
+    def __init__(self, model_name: str = None, device: str = None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.requested_model = model_name
         self.model_name = None
         self.model = None
         self.tokenizer = None
@@ -169,9 +182,10 @@ class SigLIPBackbone:
 
     def _load_backbone(self):
         from transformers import AutoTokenizer, AutoModel
-        hf_token = os.getenv("HF_TOKEN", "").strip() or None
+        hf_token = _resolve_hf_token() or None
 
-        for candidate in self.PREFERRED_MODELS:
+        candidates = [self.requested_model] if self.requested_model else self.PREFERRED_MODELS
+        for candidate in candidates:
             try:
                 print(f"[Backbone] Loading {candidate} on {self.device}...", flush=True)
                 try:
@@ -183,30 +197,27 @@ class SigLIPBackbone:
                 self.model.eval()
                 self.model_name = candidate
 
-                # Determine embedding dim cleanly via dummy pass
                 with torch.no_grad():
-                    test_vec = self.encode_texts(["Chittagong coastal beach"], batch_size=1)
+                    test_vec = self.encode_texts(["Sydney harbor museum"], batch_size=1)
                     self.emb_dim = int(test_vec.shape[1])
                 print(f"[Backbone] Loaded {candidate} cleanly (dim={self.emb_dim}, device={self.device})", flush=True)
                 return
             except Exception as e:
                 print(f"[Backbone] Warning: failed to load {candidate}: {e}", flush=True)
 
-        raise RuntimeError("Could not load any pretrained backbone model.")
+        raise RuntimeError(f"Could not load pretrained backbone model(s): {candidates}")
 
     @torch.no_grad()
     def encode_texts(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
-        """
-        Encodes list of texts into L2-normalized float32 embeddings.
-        """
+        """Encodes list of texts into L2-normalized float32 embeddings."""
         all_vecs = []
+        mlow = (self.model_name or "").lower()
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            # SigLIP was trained with padding="max_length", max_length=64
-            max_len = 64 if "siglip" in (self.model_name or "") else 77
+            max_len = 64 if "siglip" in mlow else (128 if "bge" in mlow else 77)
             inputs = self.tokenizer(
                 batch,
-                padding="max_length",
+                padding="max_length" if ("siglip" in mlow or "clip" in mlow) else True,
                 truncation=True,
                 max_length=max_len,
                 return_tensors="pt",
@@ -214,12 +225,17 @@ class SigLIPBackbone:
 
             if hasattr(self.model, "get_text_features"):
                 feats = self.model.get_text_features(**inputs)
-                # Newer transformers may return BaseModelOutputWithPooling
                 if not isinstance(feats, torch.Tensor):
                     feats = feats.pooler_output if hasattr(feats, "pooler_output") else feats[0]
             else:
                 out = self.model(**inputs)
-                feats = out.pooler_output if hasattr(out, "pooler_output") and out.pooler_output is not None else out.last_hidden_state[:, 0]
+                if "bge" in mlow:
+                    # Standard BGE CLS token normalized embedding
+                    feats = out.last_hidden_state[:, 0]
+                elif hasattr(out, "pooler_output") and out.pooler_output is not None:
+                    feats = out.pooler_output
+                else:
+                    feats = out.last_hidden_state[:, 0]
 
             feats = torch.nn.functional.normalize(feats.float(), p=2, dim=-1)
             all_vecs.append(feats.cpu().numpy())

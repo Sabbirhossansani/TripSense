@@ -1,6 +1,6 @@
 """
-Q1 Publication Figure Generator for TripSense-FairNet v2.
-Produces 8 300-DPI PNG + vector PDF figures directly from
+Flagship Q1 Publication Figure Generator for TripSense-FairNet v3 (GeoFairFormer).
+Produces 10 300-DPI PNG + vector PDF figures directly from
 backend/ml/artifacts/q1_benchmark_results.json using pure Matplotlib.
 """
 
@@ -10,7 +10,6 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from matplotlib.patches import FancyBboxPatch
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -18,23 +17,23 @@ METRICS_PATH = os.path.join(ROOT_DIR, "backend", "ml", "artifacts", "q1_benchmar
 OUT_DIR = os.path.join(ROOT_DIR, "docs", "q1_figures")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# Colorblind-safe Okabe-Ito inspired publication palette
-C_OURS = "#0072B2"     # Deep ocean blue (TripSense-FairNet v2)
-C_ECO = "#009E73"      # Forest emerald (Eco / Neuro-Symbolic)
+# Colorblind-safe Okabe-Ito publication palette
+C_OURS = "#0072B2"     # Ocean blue (TripSense-FairNet v3)
+C_ECO = "#009E73"      # Forest emerald (Eco / Neuro-Symbolic / TripWorld)
 C_LGBM = "#E69F00"     # Warm gold (LightGBM / GBDT)
-C_AGREE = "#D55E00"    # Vermilion (AGREE SIGIR'18)
-C_MLP = "#CC79A7"      # Muted plum (GroupMLP)
+C_AGREE = "#D55E00"    # Vermilion (AGREE / Random / Vanilla)
+C_MLP = "#CC79A7"      # Muted plum (MoSAN / Set-Transformer)
 C_SLATE = "#64748B"    # Neutral slate (Heuristics)
-C_SKY = "#56B4E9"      # Sky blue (Secondary bars)
+C_SKY = "#56B4E9"      # Sky blue (GroupIM / Secondary)
 C_DARK = "#0F172A"     # Deep ink
 
 plt.rcParams.update({
     "font.family": "serif",
     "font.serif": ["DejaVu Serif", "Times New Roman", "serif"],
-    "font.size": 9.5,
-    "axes.titlesize": 11,
+    "font.size": 9.2,
+    "axes.titlesize": 10.6,
     "axes.titleweight": "bold",
-    "axes.labelsize": 9.5,
+    "axes.labelsize": 9.2,
     "axes.edgecolor": "#CBD5E1",
     "axes.linewidth": 0.9,
     "axes.grid": True,
@@ -42,9 +41,9 @@ plt.rcParams.update({
     "grid.linestyle": "--",
     "grid.linewidth": 0.6,
     "grid.alpha": 0.75,
-    "xtick.labelsize": 8.5,
-    "ytick.labelsize": 8.5,
-    "legend.fontsize": 8.2,
+    "xtick.labelsize": 8.2,
+    "ytick.labelsize": 8.2,
+    "legend.fontsize": 8.0,
     "figure.dpi": 300,
     "savefig.dpi": 300,
     "savefig.facecolor": "white",
@@ -52,18 +51,20 @@ plt.rcParams.update({
 
 
 def _save(fig, name: str):
-    png = os.path.join(OUT_DIR, f"{name}.png")
-    pdf = os.path.join(OUT_DIR, f"{name}.pdf")
-    fig.savefig(png, bbox_inches="tight", dpi=300)
-    fig.savefig(pdf, bbox_inches="tight")
+    for ext in ("png", "pdf"):
+        p = os.path.join(OUT_DIR, f"{name}.{ext}")
+        if ext == "png":
+            fig.savefig(p, bbox_inches="tight", dpi=300)
+        else:
+            fig.savefig(p, bbox_inches="tight")
     plt.close(fig)
     print(f"[Figure] Saved {name}.png & .pdf", flush=True)
 
 
 def fig1_architecture_overview(data):
-    fig, ax = plt.subplots(figsize=(12.2, 5.6))
+    fig, ax = plt.subplots(figsize=(12.6, 5.8))
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 50)
+    ax.set_ylim(0, 52)
     ax.axis("off")
 
     def box(x, y, w, h, title, body, fc="#F8FAFC", ec="#334155", tc=C_DARK, lw=1.4):
@@ -72,483 +73,578 @@ def fig1_architecture_overview(data):
             facecolor=fc, edgecolor=ec, linewidth=lw, zorder=2
         )
         ax.add_patch(p)
-        ax.text(x + w / 2, y + h - 2.3, title, ha="center", va="top", fontsize=9.0, fontweight="bold", color=tc, zorder=3)
-        ax.text(x + w / 2, y + h / 2 - 1.2, body, ha="center", va="center", fontsize=7.6, color="#334155", linespacing=1.35, zorder=3)
+        ax.text(x + w / 2, y + h - 2.1, title, ha="center", va="top", fontsize=8.8, fontweight="bold", color=tc, zorder=3)
+        ax.text(x + w / 2, y + h / 2 - 1.1, body, ha="center", va="center", fontsize=7.4, color="#334155", linespacing=1.34, zorder=3)
 
     def arrow(x1, y1, x2, y2, color="#475569"):
         ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle="-|>", color=color, lw=1.4, shrinkA=2, shrinkB=2), zorder=4)
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=1.35, shrinkA=2, shrinkB=2), zorder=4)
 
-    ax.text(50, 48.2, "TripSense-FairNet v2: Rotation-Invariant Dual-Stream Fairness & Neuro-Symbolic Architecture",
-            ha="center", va="center", fontsize=12.0, fontweight="bold", color=C_DARK)
+    ax.text(50, 50.2, "TripSense-FairNet v3 (GeoFairFormer): Dual-Path O(D)-Invariant Consensus & Spectral OOD Gating",
+            ha="center", va="center", fontsize=11.6, fontweight="bold", color=C_DARK)
 
-    # Column 1: Inputs & CLIP
-    box(2, 27, 20, 16.5, "Multimodal Inputs",
-        "Group Profiles (|G| = 2..5)\nMember Taste History (72% Past)\nCandidate POI + 8-d Context\nCLIP ViT-B/32 (512-d) + Centr.",
+    box(1.5, 28, 19.5, 17, "Multimodal Inputs",
+        "Group Profiles (|G| = 2..5)\n72% Past Check-ins (No Leak)\nCandidate POI + 8-d Context\nCLIP / SigLIP / BGE Centered",
         fc="#EFF6FF", ec=C_OURS)
-    box(2, 5, 20, 16.5, "Active Bayesian EIG",
-        "Cold-Start Preference Probe\nOrthogonal Info Gain Swipes\n12-Card Visual Gallery\n0 -> 6 Swipes Calibration",
+    box(1.5, 5, 19.5, 17, "BALD Active Swipe",
+        "Gaussian Posterior EIG\narg max x^T Sigma_t x\n0 -> 6 Cold-Start Calibration\nOrthogonal Taste Refinement",
         fc="#F0FDF4", ec=C_ECO)
 
-    # Column 2: Dual Streams
-    box(27.5, 27, 24.5, 16.5, "Stream 1: Hadamard Cross-Attn",
-        "Rotation-Invariant Geo Tokens:\n[cos_u, Δmean, Δmin, coh, bg]\n+ 0.35*Tanh Hadamard Residual\n4-Head Cross-Attn + Soft-Min",
+    box(25.5, 31.5, 25, 14, "Stream 1: O(D) + MemberGramSAB",
+        "19-d Zero-Coord Geo Tokens\nMember-to-Member Gram SAB\n4-Head Cross-Attn + Soft-Min",
         fc="#F5F3FF", ec=C_MLP)
-    box(27.5, 5, 24.5, 16.5, "Stream 2: 15-d Rel. Highway",
-        "[cos_{mean,min,max,std}, bg,\n |G|/5, dist, price, pop, rating,\n indoor, hidden, eco, SME]\nResidual MLP + Linear Skip",
+    box(25.5, 16.5, 25, 11.5, "Stream 2: 15-d Rel. Highway",
+        "Un-Squashed Summary Manifold\n[cos_{mu,min,max,std}, bg, |G|/5,\n dist..SME] ResNet + Skip",
         fc="#FFFBEB", ec=C_LGBM)
+    box(25.5, 3.5, 25, 10.0, "Stream 3: Spectral-Gated Adapter",
+        "Top-48 Source SVD Gate gamma(C)\nSydney=0.75 vs Tokyo/TW~0.00\nHadamard Adapter (In-Domain)",
+        fc="#FFF1F2", ec=C_AGREE)
 
-    # Column 3: Additive Fusion + Multi-Objective Loss
-    box(57.5, 16, 19, 27.5, "Additive Logit Fusion\n& Pareto InfoNCE",
-        "Softplus Scales s1,s2,s3:\nScore = σ(s1·Attn + s2·Min\n          + s3·Rel + b)\n\nJoint Loss:\n• 20-Neg InfoNCE (τ=0.20)\n• Differentiable Gini + Slate\n• Least-Misery Safety Floor\n• Expected Eco-Exposure",
+    box(55.5, 11, 20.5, 33, "Dual-Path Pareto\nInfoNCE Fusion",
+        "Invariant Logit = s0*Attn +\n  s1*SoftMin + s2*Rel + b\nTotal = Inv + gamma*s3*Sem\n\nJoint Loss (L_tot + 0.7 L_inv):\n• 20-Neg InfoNCE (tau=0.20)\n• Differentiable True Gini\n• Rawlsian Min-Sat Floor\n• Soft-Slate Expected Eco",
         fc="#ECFEFF", ec=C_OURS, lw=1.8)
 
-    # Column 4: Multi-XAI & Neuro-Symbolic Output
     mae = data["multi_xai_evaluation"]["integrated_gradients"]["completeness_mae"]
-    tp_feas = data["travelplanner_rag_evaluation"]["tripsense_neuro_symbolic_rag"]["budget_feasibility_pct"]
+    ins_auc = data["multi_xai_evaluation"]["integrated_gradients"]["insertion_auc"]
     nash_gain = data["multi_xai_evaluation"]["attention_and_counterfactual_audit"]["nash_counterfactual_recourse"]["mean_nash_welfare_gain_pct"]
-    box(81, 27, 17, 16.5, "Multi-Paradigm XAI",
-        f"32-Step IG (MAE={mae:.1e})\nComp/Suff + Permutation\nTreeSHAP Concordance\nAttn Budget Protection",
+    tp_feas = data["travelplanner_rag_evaluation"]["tripsense_neuro_symbolic_rag"]["budget_feasibility_pct"]
+
+    box(80.5, 28, 18.0, 17, "5-Paradigm E2E XAI",
+        f"32-Step IG (MAE={mae:.1e})\nExpected Grad + InputxGrad\nInsAUC={ins_auc:.3f} | 5.33x Comp\nWorked Local Case Audits",
         fc="#FEF2F2", ec=C_AGREE)
-    box(81, 5, 17, 16.5, "Nash Veto & Verifier",
-        f"Nash Bargaining Recourse\n(Welfare Gain +{nash_gain:.2f}%)\nDeterministic CSP Audit\n(Budget Feas. {tp_feas:.0f}%)",
+    box(80.5, 5, 18.0, 17, "Nash & Symbolic Audit",
+        f"Nash Bargaining Veto\n(Welfare Gain +{nash_gain:.2f}%)\nDeterministic CSP Verifier\n(Budget Feas. {tp_feas:.0f}%)",
         fc="#F0FDF4", ec=C_ECO)
 
-    arrow(22.6, 35.2, 27.0, 35.2, C_OURS)
-    arrow(22.6, 31.0, 27.0, 14.5, C_LGBM)
-    arrow(12.0, 22.1, 12.0, 26.4, C_ECO)
-    arrow(52.6, 35.2, 57.0, 32.0, C_MLP)
-    arrow(52.6, 13.5, 57.0, 24.0, C_LGBM)
-    arrow(77.1, 34.0, 80.5, 35.2, C_AGREE)
-    arrow(77.1, 21.0, 80.5, 13.5, C_ECO)
+    arrow(21.5, 36.5, 25.0, 38.5, C_OURS)
+    arrow(21.5, 32.0, 25.0, 22.2, C_LGBM)
+    arrow(21.5, 29.0, 25.0, 8.5, C_AGREE)
+    arrow(11.2, 22.5, 11.2, 27.5, C_ECO)
+    arrow(51.0, 38.5, 55.0, 34.0, C_MLP)
+    arrow(51.0, 22.2, 55.0, 26.5, C_LGBM)
+    arrow(51.0, 8.5, 55.0, 17.0, C_AGREE)
+    arrow(76.5, 33.5, 80.0, 36.5, C_AGREE)
+    arrow(76.5, 20.0, 80.0, 13.5, C_ECO)
 
     _save(fig, "fig1_architecture_overview")
 
 
 def fig2_model_benchmark_and_cd(data):
     comp = data["group_consensus_comparison"]
+    st = data["statistical_tests"]
+
     items = sorted(comp.items(), key=lambda kv: kv[1]["ndcg10"])
     names = [k for k, _ in items]
-    ndcgs = [v["ndcg10"] for _, v in items]
-    err_low = [v["ndcg10"] - v["ndcg10_ci95"][0] for _, v in items]
-    err_high = [v["ndcg10_ci95"][1] - v["ndcg10"] for _, v in items]
-
+    ndcgs = np.array([v["ndcg10"] for _, v in items])
+    ci_lows = np.array([v["ndcg10"] - v["ndcg10_ci95"][0] for _, v in items])
+    ci_highs = np.array([v["ndcg10_ci95"][1] - v["ndcg10"] for _, v in items])
     colors = []
-    for n in names:
-        if "Ours" in n:
+    for k in names:
+        if "Ours" in k:
             colors.append(C_OURS)
-        elif "LightGBM" in n or "HistGBDT" in n or "Random Forest" in n:
+        elif "LightGBM" in k or "Hist" in k or "Random Forest" in k:
             colors.append(C_LGBM)
-        elif "AGREE" in n or "GroupMLP" in n:
-            colors.append(C_AGREE)
+        elif any(t in k for t in ["AGREE", "MoSAN", "GroupIM", "Set-Transformer", "DeepSets", "GroupMLP"]):
+            colors.append(C_MLP)
         else:
             colors.append(C_SLATE)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.6, 4.9), gridspec_kw={"width_ratios": [1.35, 1.0]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.0, 5.6), gridspec_kw={"width_ratios": [1.32, 1.0]})
 
-    # Panel A: Horizontal NDCG@10 with 95% Bootstrap CI
-    y = np.arange(len(names))
-    bars = ax1.barh(y, ndcgs, xerr=[err_low, err_high], color=colors, edgecolor="#1E293B", linewidth=0.6, capsize=3, height=0.68, alpha=0.92)
-    ax1.set_yticks(y)
-    ax1.set_yticklabels(names, fontweight="medium")
-    ax1.set_xlabel("NDCG@10 on Held-Out Sydney Test Split (n = 180 groups, 95% Bootstrap CI)")
-    ax1.set_title("(a) Group Ranking Accuracy Comparison (10 Models)")
-    ax1.set_xlim(0, 0.68)
-    for i, (val, bar) in enumerate(zip(ndcgs, bars)):
-        suffix = " (Holm p≤0.0011 vs baselines)" if "Ours" in names[i] else f" (Hit@10={comp[names[i]]['hit10']:.3f})"
-        ax1.text(val + err_high[i] + 0.008, bar.get_y() + bar.get_height() / 2,
-                 f"{val:.4f}", va="center", ha="left", fontsize=8.0,
-                 fontweight="bold" if "Ours" in names[i] else "normal",
-                 color=C_OURS if "Ours" in names[i] else "#334155")
+    y_pos = np.arange(len(names))
+    ax1.barh(y_pos, ndcgs, xerr=[ci_lows, ci_highs], height=0.68, color=colors,
+             edgecolor=C_DARK, linewidth=0.55, error_kw=dict(ecolor=C_DARK, lw=1.0, capsize=2.5))
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels([n.replace(" (Ours)", "\n(Ours)") for n in names], fontsize=7.8)
+    for i, (val, hi, name) in enumerate(zip(ndcgs, ci_highs, names)):
+        fw = "bold" if "Ours" in name else "normal"
+        col = C_OURS if "Ours" in name else C_DARK
+        sig = " ***" if comp[name].get("holm_p_ndcg10", 1.0) < 0.001 else ""
+        ax1.text(val + hi + 0.008, i, f"{val:.4f}{sig}", va="center", fontsize=7.4, fontweight=fw, color=col)
+    ax1.set_xlim(0, 0.72)
+    ax1.set_xlabel("NDCG@10 (with 95% Bootstrap CI, N = 180 Test Groups)")
+    ax1.set_title("(A) 15-Model Benchmark on Massive-STEPS-Sydney")
+    ax1.grid(axis="x", linestyle="--", alpha=0.6)
+    ax1.grid(axis="y", visible=False)
 
-    # Panel B: Friedman Average Ranks + Nemenyi Critical Difference
-    st = data["statistical_tests"]
+    # Panel B: Friedman-Nemenyi CD Diagram
+    ranked = sorted(comp.items(), key=lambda kv: kv[1]["friedman_rank"])
+    r_names = [k for k, _ in ranked]
+    ranks = np.array([v["friedman_rank"] for _, v in ranked])
     cd = st["nemenyi_cd_alpha05"]
-    ranks_sorted = sorted(comp.items(), key=lambda kv: kv[1]["friedman_rank"])
-    r_names = [k for k, _ in ranks_sorted]
-    r_vals = [v["friedman_rank"] for _, v in ranks_sorted]
-    r_cols = [C_OURS if "Ours" in n else (C_LGBM if any(x in n for x in ("LightGBM", "Forest", "Hist")) else (C_AGREE if any(x in n for x in ("AGREE", "MLP")) else C_SLATE)) for n in r_names]
+    best_r = ranks[0]
 
-    yr = np.arange(len(r_names))[::-1]
-    ax2.hlines(yr, xmin=1.0, xmax=r_vals, color="#CBD5E1", linewidth=1.2, zorder=1)
-    ax2.scatter(r_vals, yr, c=r_cols, s=75, edgecolors="#0F172A", linewidth=0.8, zorder=3)
-    ax2.axvline(r_vals[0] + cd, color=C_OURS, linestyle=":", linewidth=1.3, label=f"Best + Nemenyi CD ({cd:.2f})")
-    ax2.axvspan(r_vals[0], r_vals[0] + cd, color=C_OURS, alpha=0.07)
+    y2 = np.arange(len(r_names))[::-1]
+    c2 = [C_OURS if "Ours" in k else (C_LGBM if ("LightGBM" in k or "Hist" in k or "Forest" in k) else C_SLATE) for k in r_names]
+    ax2.hlines(y2, xmin=best_r, xmax=ranks, color="#CBD5E1", linewidth=1.2, zorder=1)
+    ax2.scatter(ranks, y2, s=68, color=c2, edgecolor=C_DARK, zorder=3)
+    for idx_r, (rn, rk, yy) in enumerate(zip(r_names, ranks, y2)):
+        ax2.text(rk + 0.16, yy, f"{rk:.2f}", va="center", fontsize=7.3,
+                 fontweight=("bold" if "Ours" in rn else "normal"))
 
-    # Top CD bar
-    ax2.plot([r_vals[0], r_vals[0] + cd], [len(r_names) - 0.15, len(r_names) - 0.15], color=C_DARK, lw=2.0, marker="|", markersize=8)
-    ax2.text(r_vals[0] + cd / 2, len(r_names) + 0.12, f"CD = {cd:.2f} (α = 0.05)", ha="center", va="bottom", fontsize=8.0, fontweight="bold")
+    ax2.axvspan(best_r, best_r + cd, color="#DBEAFE", alpha=0.50, label=f"Nemenyi CD_0.05 = {cd:.3f}")
+    ax2.axvline(best_r + cd, color=C_OURS, linestyle="--", linewidth=1.2)
+    ax2.set_yticks(y2)
+    ax2.set_yticklabels([n.replace(" (SIGIR'18)", "").replace(" (SIGIR'19)", "").replace(" (SIGIR'20)", "").replace(" (ICML'19)", "").replace(" (NeurIPS'17)", "") for n in r_names], fontsize=7.6)
+    ax2.set_xlim(4.0, 12.8)
+    ax2.set_xlabel("Mean Friedman Rank (1 = Best, Lower Better)")
+    ax2.set_title(f"(B) Friedman chi2 = {st['friedman_chi2']:.1f} (p = {st['friedman_p_value']:.1e})")
+    ax2.legend(loc="upper right", frameon=True, fontsize=7.8)
 
-    ax2.set_yticks(yr)
-    ax2.set_yticklabels([f"{n} ({v:.2f})" for n, v in zip(r_names, r_vals)], fontsize=8.2)
-    ax2.set_xlim(1.0, 9.0)
-    ax2.set_ylim(-0.6, len(r_names) + 0.7)
-    ax2.set_xlabel(f"Friedman Average Rank (lower is better; χ² = {st['friedman_chi2']:.1f}, p = {st['friedman_p_value']:.1e})")
-    ax2.set_title("(b) Friedman-Nemenyi Post-Hoc Rank Diagram")
-    ax2.legend(loc="lower right", frameon=True)
-
-    fig.tight_layout(pad=1.4)
+    plt.tight_layout()
     _save(fig, "fig2_model_benchmark_and_cd")
 
 
-def fig3_fairness_accuracy_pareto(data):
+def fig3_pareto_and_sensitivity(data):
     comp = data["group_consensus_comparison"]
-    pareto = data["pareto_gini_sweep"]
+    hs = data["hyperparameter_sensitivity"]
+    bb = data["backbone_comparison"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.2, 4.7))
+    fig, axes = plt.subplots(2, 2, figsize=(12.2, 8.6))
 
-    # Panel A: NDCG@10 vs Gini Index (ideal: top-left: high NDCG@10, low Gini)
-    for mname, m in comp.items():
-        if "Ours" in mname:
-            continue
-        marker = "s" if any(k in mname for k in ("LightGBM", "Forest", "Hist")) else ("^" if any(k in mname for k in ("AGREE", "MLP")) else "o")
-        col = C_LGBM if marker == "s" else (C_AGREE if marker == "^" else C_SLATE)
-        ax1.scatter(m["gini_index"], m["ndcg10"], s=70, color=col, marker=marker, edgecolors=C_DARK, linewidth=0.7, zorder=3)
-        dx, dy, ha = 0.0005, 0.005, "left"
-        if "LightGBM" in mname:
-            dx, dy, ha = -0.0006, -0.015, "right"
-        elif "HistGBDT" in mname:
-            dx, dy, ha = 0.0005, -0.014, "left"
-        elif "Random Forest" in mname:
-            dx, dy, ha = 0.0005, 0.005, "left"
-        elif "Least-Misery" in mname:
-            dx, dy, ha = 0.0006, 0.004, "left"
-        elif "Borda" in mname:
-            dx, dy, ha = 0.0006, -0.004, "left"
-        elif "Average Cosine" in mname:
-            dx, dy, ha = -0.0006, 0.010, "right"
-        ax1.text(m["gini_index"] + dx, m["ndcg10"] + dy, mname.replace(" (SIGIR'18)", ""), fontsize=7.5, color="#334155", ha=ha)
+    # Panel A: Pareto Fairness-Accuracy Frontier
+    ax = axes[0, 0]
+    for mname, mvals in comp.items():
+        x, y, eco = mvals["gini_index"], mvals["ndcg10"], mvals["eco_coverage_pct"]
+        is_ours = "Ours" in mname
+        col = C_OURS if is_ours else (C_LGBM if "LightGBM" in mname else (C_MLP if any(t in mname for t in ["AGREE", "MoSAN", "GroupIM", "GroupMLP"]) else C_SLATE))
+        ax.scatter(x, y, s=eco * 4.8 if not is_ours else eco * 7.2,
+                   color=col, edgecolor=C_DARK, linewidth=(1.6 if is_ours else 0.7), alpha=0.88, zorder=(5 if is_ours else 3))
+        if is_ours or mname in ("LightGBM GBDT", "LightGBM LambdaRank", "MoSAN (SIGIR'19)", "GroupMLP", "GroupIM (SIGIR'20)", "Least-Misery", "Popularity"):
+            short = "FairNet v3 (Ours)" if is_ours else mname.replace(" (SIGIR'19)", "").replace(" (SIGIR'20)", "").replace(" GBDT", "")
+            offsets = {
+                "TripSense-FairNet v3 (Ours)": (-0.0004, -0.032),
+                "LightGBM GBDT": (0.0012, 0.020),
+                "GroupMLP": (-0.0022, 0.006),
+                "MoSAN (SIGIR'19)": (0.0002, 0.016),
+                "GroupIM (SIGIR'20)": (0.0012, -0.022),
+                "LightGBM LambdaRank": (-0.0005, -0.026),
+                "Popularity": (0.0005, 0.015),
+                "Least-Misery": (0.0012, 0.015),
+            }
+            dx, dy = offsets.get(mname, (0.0005, 0.014))
+            ax.annotate(short, (x + dx, y + dy), fontsize=7.5, fontweight=("bold" if is_ours else "normal"),
+                        color=(C_OURS if is_ours else C_DARK))
 
-    px = [p["gini_index"] for p in pareto]
-    py = [p["ndcg10"] for p in pareto]
-    order = np.argsort(px)
-    ax1.plot(np.array(px)[order], np.array(py)[order], color=C_OURS, lw=1.6, linestyle="--", alpha=0.75, label="FairNet v2 λ_gini Sweep")
-    label_offsets = {
-        0.0: (0.0022, -0.022, "left"),
-        0.15: (-0.0024, -0.024, "right"),
-        0.3: (0.0000, 0.018, "center"),
-        0.65: (0.0024, 0.014, "left"),
-        1.0: (-0.0020, 0.016, "right"),
-    }
-    for p in pareto:
-        is_opt = abs(p["lambda_gini"] - 0.3) < 1e-4
-        ax1.scatter(p["gini_index"], p["ndcg10"], s=165 if is_opt else 85,
-                    color=C_OURS if is_opt else C_SKY, marker="*", edgecolors=C_DARK, linewidth=0.8, zorder=5)
-        ox, oy, ha = label_offsets.get(round(p["lambda_gini"], 2), (0.0006, 0.008, "left"))
-        ax1.annotate(
-            f"λ={p['lambda_gini']:.2f}" + (" (Ours)" if is_opt else ""),
-            xy=(p["gini_index"], p["ndcg10"]),
-            xytext=(p["gini_index"] + ox, p["ndcg10"] + oy),
-            fontsize=7.6,
-            fontweight="bold" if is_opt else "normal",
-            color=C_OURS if is_opt else "#1E293B",
-            ha=ha,
-            arrowprops=dict(arrowstyle="-", color="#94A3B8", lw=0.6) if not is_opt else None,
-        )
+    # Plot Pareto sweep trajectory
+    ps = hs["lambda_gini_sweep"]
+    ax.plot([r["gini_index"] for r in ps], [r["ndcg10"] for r in ps], "--", color=C_OURS, alpha=0.65, lw=1.2, label="lambda_gini Sweep")
+    ax.invert_xaxis()
+    ax.set_xlabel("Intra-Group Gini Index (Right = Lower Inequality)")
+    ax.set_ylabel("NDCG@10 (Higher Better)")
+    ax.set_title("(A) Fairness-Accuracy-Eco Pareto Frontier (Bubble Size = Eco %)")
+    ax.legend(loc="lower left", fontsize=7.6)
 
-    ax1.set_xlabel("Intra-Group Satisfaction Gini Index (lower = fairer)")
-    ax1.set_ylabel("Group Ranking Accuracy (NDCG@10, higher = better)")
-    ax1.set_title("(a) Accuracy vs. Fairness Pareto Frontier (Optimal: Top-Left)")
-    ax1.set_xlim(0.0565, 0.0815)
-    ax1.set_ylim(0.13, 0.595)
-    ax1.legend(loc="lower right", frameon=True)
+    # Panel B: lambda_gini & lambda_eco Sensitivity
+    ax = axes[0, 1]
+    lgs = [r["lambda_gini"] for r in ps]
+    ax.plot(lgs, [r["ndcg10"] for r in ps], "o-", color=C_OURS, lw=2.0, label="NDCG@10 vs lambda_gini")
+    ax.set_xlabel("lambda_gini Weight")
+    ax.set_ylabel("NDCG@10", color=C_OURS)
+    ax.tick_params(axis="y", labelcolor=C_OURS)
+    ax_r = ax.twinx()
+    ax_r.plot(lgs, [r["gini_index"] for r in ps], "s--", color=C_AGREE, lw=1.8, label="Gini Index (Right)")
+    ax_r.set_ylabel("Gini Index (Lower Better)", color=C_AGREE)
+    ax_r.tick_params(axis="y", labelcolor=C_AGREE)
+    ax_r.grid(False)
+    ax.set_title("(B) Pareto Weight Sensitivity (lambda_gini = 0.36 Sweet Spot)")
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax_r.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=7.4)
 
-    # Panel B: Learned Models Multi-Metric Comparison (NDCG@10 vs Eco Coverage)
-    learned = ["AGREE (SIGIR'18)", "HistGBDT", "Random Forest", "GroupMLP", "LightGBM GBDT", "TripSense-FairNet v2 (Ours)"]
-    x = np.arange(len(learned))
-    w = 0.36
-    vals_ndcg = [comp[k]["ndcg10"] * 100.0 for k in learned]
-    vals_eco = [comp[k]["eco_coverage_pct"] for k in learned]
+    # Panel C: Temperature tau & lambda_eco Sensitivity
+    ax = axes[1, 0]
+    tsw = hs["tau_sweep"]
+    taus = [r["tau"] for r in tsw]
+    ax.plot(taus, [r["ndcg10"] for r in tsw], "o-", color=C_OURS, lw=2.0, label="NDCG@10 (tau Sweep)")
+    ax.set_xlabel("InfoNCE Temperature tau")
+    ax.set_ylabel("NDCG@10", color=C_OURS)
+    ax2r = ax.twinx()
+    ax2r.plot(taus, [r["eco_coverage_pct"] for r in tsw], "^--", color=C_ECO, lw=1.8, label="Eco Coverage % (Right)")
+    ax2r.set_ylabel("Top-5 Eco Coverage (%)", color=C_ECO)
+    ax2r.grid(False)
+    ax.set_title("(C) Contrastive Temperature tau Sensitivity")
+    l1, lb1 = ax.get_legend_handles_labels()
+    l2, lb2 = ax2r.get_legend_handles_labels()
+    ax.legend(l1 + l2, lb1 + lb2, loc="lower left", fontsize=7.4)
 
-    b1 = ax2.bar(x - w / 2, vals_ndcg, w, label="NDCG@10 (×100)", color=C_OURS, edgecolor=C_DARK, lw=0.6)
-    b2 = ax2.bar(x + w / 2, vals_eco, w, label="Top-5 Eco Coverage (%)", color=C_ECO, edgecolor=C_DARK, lw=0.6)
-    for b in list(b1) + list(b2):
-        h = b.get_height()
-        ax2.text(b.get_x() + b.get_width() / 2, h + 0.9, f"{h:.1f}", ha="center", va="bottom", fontsize=7.5)
+    # Panel D: 3-Backbone Foundation Comparison
+    ax = axes[1, 1]
+    b_labels = ["CLIP ViT-B/32\n(512-d)", "Google SigLIP\n(768-d)", "BAAI BGE-base\n(768-d)"]
+    b_keys = ["openai/clip-vit-base-patch32", "google/siglip-base-patch16-224", "BAAI/bge-base-en-v1.5"]
+    x_pos = np.arange(len(b_keys))
+    w = 0.20
+    for idx_m, (mkey, mlbl, col) in enumerate([
+        ("fairnet_v3", "FairNet v3 (Ours)", C_OURS),
+        ("groupim", "GroupIM (SIGIR'20)", C_SKY),
+        ("lambdarank", "LGBM LambdaRank", C_LGBM),
+        ("avg_cos", "Average Cosine", C_SLATE),
+    ]):
+        vals = [bb[bk][mkey]["ndcg10"] for bk in b_keys]
+        bars = ax.bar(x_pos + (idx_m - 1.5) * w, vals, width=w, label=mlbl, color=col, edgecolor=C_DARK, linewidth=0.5)
+        for bar, v in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2, v + 0.008, f"{v:.3f}", ha="center", va="bottom", fontsize=6.6, rotation=90)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(b_labels)
+    ax.set_ylim(0, 0.72)
+    ax.set_ylabel("Sydney Test NDCG@10")
+    ax.set_title("(D) Multi-Backbone Generalization (3 Foundation Encoders)")
+    ax.legend(loc="upper right", ncol=2, fontsize=7.2)
 
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(["AGREE", "HistGBDT", "RF", "GroupMLP", "LightGBM", "FairNet v2\n(Ours)"], fontsize=8.2)
-    ax2.set_ylabel("Score / Coverage Percentage (%)")
-    ax2.set_title("(b) Accuracy–Sustainability Synergy Across Learned Models")
-    ax2.set_ylim(0, 65)
-    ax2.legend(loc="upper left", frameon=True)
-
-    fig.tight_layout(pad=1.4)
-    _save(fig, "fig3_fairness_accuracy_pareto")
+    plt.tight_layout()
+    _save(fig, "fig3_pareto_and_sensitivity")
 
 
 def fig4_ablation_and_scaling(data):
     abl = data["ablation_study"]
     scl = data["group_size_scaling"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.4, 4.8), gridspec_kw={"width_ratios": [1.25, 1.0]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.8, 5.2), gridspec_kw={"width_ratios": [1.3, 1.0]})
 
-    # Panel A: 7-Variant Component Ablation
-    variants = [r["variant"] for r in abl][::-1]
-    ndcgs = [r["ndcg10"] for r in abl][::-1]
-    deltas = [r["delta_ndcg10"] for r in abl][::-1]
-    cols = [C_OURS if v.startswith("Full") else C_AGREE for v in variants]
-    y = np.arange(len(variants))
-    bars = ax1.barh(y, ndcgs, color=cols, edgecolor=C_DARK, lw=0.6, height=0.62, alpha=0.9)
+    # Panel A: 10-Variant Component Ablation (both Sydney + External Zero-Shot Mean)
+    vnames = [r["variant"].replace(" (Ours)", "").replace("O(D)", "O(D)") for r in abl]
+    syd_vals = [r["ndcg10"] for r in abl]
+    ext_vals = [r["ext_mean_ndcg10"] for r in abl]
+    y = np.arange(len(vnames))[::-1]
+    h = 0.36
+    ax1.barh(y + h / 2, syd_vals, height=h, color=C_OURS, edgecolor=C_DARK, lw=0.5, label="Sydney In-Domain NDCG@10")
+    ax1.barh(y - h / 2, ext_vals, height=h, color=C_ECO, edgecolor=C_DARK, lw=0.5, label="5-City Zero-Shot Mean NDCG@10")
+    for yy, sv, ev in zip(y, syd_vals, ext_vals):
+        ax1.text(sv + 0.006, yy + h / 2, f"{sv:.3f}", va="center", fontsize=7.0, color=C_OURS, fontweight="bold")
+        ax1.text(ev + 0.006, yy - h / 2, f"{ev:.3f}", va="center", fontsize=7.0, color=C_ECO)
     ax1.set_yticks(y)
-    ax1.set_yticklabels(variants, fontsize=8.4)
-    ax1.set_xlabel("Held-Out Sydney NDCG@10")
-    ax1.set_title("(a) 7-Variant Component Ablation Study")
-    ax1.set_xlim(0, 0.75)
-    for bar, v, d in zip(bars, ndcgs, deltas):
-        lbl = f"{v:.4f}" if d == 0 else f"{v:.4f} ({d:+.4f})"
-        ax1.text(v + 0.008, bar.get_y() + bar.get_height() / 2, lbl,
-                 va="center", ha="left", fontsize=7.9, fontweight="bold" if d == 0 else "normal")
+    ax1.set_yticklabels(vnames, fontsize=7.7)
+    ax1.set_xlim(0.20, 0.64)
+    ax1.set_xlabel("NDCG@10 (Note: Removing Spectral Gate drops Ext Mean 0.3585 -> 0.3371)")
+    ax1.set_title("(A) 10-Variant Component Ablation (In-Domain vs Zero-Shot)")
+    ax1.legend(loc="lower right", fontsize=7.4)
 
-    # Panel B: Group Size Scaling |G| in {2, 3, 4, 5}
-    gs = [r["group_size"] for r in scl]
-    ax2.plot(gs, [r["fairnet_ndcg10"] for r in scl], marker="o", lw=2.2, color=C_OURS, label="TripSense-FairNet v2 (Ours)")
-    ax2.plot(gs, [r["lgbm_ndcg10"] for r in scl], marker="s", lw=1.8, linestyle="--", color=C_LGBM, label="LightGBM GBDT")
-    ax2.plot(gs, [r["agree_ndcg10"] for r in scl], marker="^", lw=1.8, linestyle=":", color=C_AGREE, label="AGREE (SIGIR'18)")
+    # Panel B: Group Size Scaling |G|=2..5
+    gsz = [r["group_size"] for r in scl]
+    ax2.plot(gsz, [r["fairnet_ndcg10"] for r in scl], "o-", color=C_OURS, lw=2.3, ms=7, label="FairNet v3 (Ours)")
+    ax2.plot(gsz, [r["lgbm_ndcg10"] for r in scl], "s--", color=C_LGBM, lw=1.8, ms=6, label="LightGBM GBDT")
+    ax2.plot(gsz, [r["groupim_ndcg10"] for r in scl], "D-.", color=C_SKY, lw=1.6, ms=5.5, label="GroupIM (SIGIR'20)")
+    ax2.plot(gsz, [r["agree_ndcg10"] for r in scl], "^:", color=C_AGREE, lw=1.6, ms=6, label="AGREE (SIGIR'18)")
+    ax2.plot(gsz, [r["lambdarank_ndcg10"] for r in scl], "v--", color=C_MLP, lw=1.5, ms=5.5, label="LightGBM LambdaRank")
     for r in scl:
-        dy = -0.025 if r["group_size"] == 5 else 0.013
-        ax2.text(r["group_size"], r["fairnet_ndcg10"] + dy, f"{r['fairnet_ndcg10']:.3f}", ha="center", fontsize=7.8, fontweight="bold", color=C_OURS)
+        ax2.text(r["group_size"], r["fairnet_ndcg10"] + 0.012, f"{r['fairnet_ndcg10']:.3f}", ha="center", fontsize=7.5, fontweight="bold", color=C_OURS)
+    ax2.set_xticks(gsz)
+    ax2.set_xticklabels([f"|G|={g}\n(n={r['num_groups']})" for g, r in zip(gsz, scl)])
+    ax2.set_ylim(0.30, 0.70)
+    ax2.set_ylabel("Held-Out Test NDCG@10")
+    ax2.set_title("(B) Group Cardinality Scaling (|G| = 2..5 Companions)")
+    ax2.legend(loc="upper right", fontsize=7.4)
 
-    ax2.set_xticks(gs)
-    ax2.set_xticklabels([f"|G| = {g}\n(n={r['num_groups']})" for g, r in zip(gs, scl)])
-    ax2.set_ylabel("NDCG@10 Across Group Sizes")
-    ax2.set_title("(b) Scalability Across Group Cardinality |G| = 2..5")
-    ax2.set_ylim(0.32, 0.66)
-    ax2.legend(loc="lower left", frameon=True)
-
-    fig.tight_layout(pad=1.4)
+    plt.tight_layout()
     _save(fig, "fig4_ablation_and_scaling")
 
 
-def fig5_cross_city_transfer(data):
+def fig5_multicontinent_and_tripworld(data):
     ext = data["external_cross_city_validation"]
-    syd = data["group_consensus_comparison"]
-    bd = data["bangladesh_5city_pilot"]
+    tw = data["tripworld_external_validation"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.6, 4.8), gridspec_kw={"width_ratios": [1.3, 1.0]})
+    cities = ["Melbourne", "Tokyo", "New-York", "Istanbul", "Sao-Paulo"]
+    domains = cities + ["TripWorld\n(Osaka)"]
+    datasets_list = [ext[c] for c in cities] + [tw]
 
-    # Panel A: Zero-Shot Cross-City NDCG@10 (Sydney in-domain + Melbourne/Tokyo/New-York zero-shot)
-    cities = ["Sydney\n(In-Domain)", "Melbourne\n(Zero-Shot)", "Tokyo\n(Zero-Shot)", "New-York\n(Zero-Shot)"]
-    x = np.arange(len(cities))
-    w = 0.18
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.2, 5.1), gridspec_kw={"width_ratios": [1.55, 1.0]})
 
-    def _get(c, k):
-        if c == "Sydney":
-            map_s = {"Ours": "TripSense-FairNet v2 (Ours)", "LGBM": "LightGBM GBDT", "GroupMLP": "GroupMLP", "AGREE": "AGREE (SIGIR'18)", "AvgCos": "Average Cosine"}
-            return syd[map_s[k]]["ndcg10"]
-        map_e = {"Ours": "TripSense-FairNet v2 (Zero-Shot)", "LGBM": "LightGBM (Zero-Shot)", "GroupMLP": "GroupMLP (Zero-Shot)", "AGREE": "AGREE (Zero-Shot)", "AvgCos": "Average Cosine"}
-        return ext[c]["models"][map_e[k]]["ndcg10"]
-
-    city_keys = ["Sydney", "Melbourne", "Tokyo", "New-York"]
-    m_specs = [
-        ("Ours", "FairNet v2 (Ours)", C_OURS),
-        ("LGBM", "LightGBM GBDT", C_LGBM),
-        ("GroupMLP", "GroupMLP", C_MLP),
-        ("AGREE", "AGREE (SIGIR'18)", C_AGREE),
-        ("AvgCos", "Average Cosine", C_SLATE),
+    x = np.arange(len(domains))
+    w = 0.16
+    model_specs = [
+        ("TripSense-FairNet v3 (Zero-Shot)", "FairNet v3 (Zero-Shot)", C_OURS),
+        ("LightGBM Cls (Zero-Shot)", "LightGBM Cls", C_LGBM),
+        ("LightGBM LambdaRank (Zero-Shot)", "LGBM LambdaRank", C_MLP),
+        ("MoSAN (Zero-Shot)", "MoSAN (SIGIR'19)", C_SKY),
+        ("GroupIM (Zero-Shot)", "GroupIM (SIGIR'20)", C_ECO),
+        ("AGREE (Zero-Shot)", "AGREE (SIGIR'18)", C_AGREE),
     ]
-    offsets = np.linspace(-2 * w, 2 * w, len(m_specs))
-    for (mk, ml, mc), off in zip(m_specs, offsets):
-        vals = [_get(ck, mk) for ck in city_keys]
-        bars = ax1.bar(x + off, vals, w * 0.94, label=ml, color=mc, edgecolor=C_DARK, lw=0.5)
-        if mk == "Ours":
+    for idx_m, (mkey, mlbl, col) in enumerate(model_specs):
+        vals = [d["models"][mkey]["ndcg10"] for d in datasets_list]
+        bars = ax1.bar(x + (idx_m - 2.5) * w, vals, width=w, label=mlbl, color=col, edgecolor=C_DARK, lw=0.45)
+        if idx_m == 0:
             for b, v in zip(bars, vals):
-                ax1.text(b.get_x() + b.get_width() / 2 - 0.02, v + 0.012, f"{v:.3f}", ha="center", va="bottom",
-                         fontsize=7.1, fontweight="bold", color=C_OURS)
-        elif mk == "LGBM":
-            for b, v in zip(bars, vals):
-                ax1.text(b.get_x() + b.get_width() / 2 + 0.04, v + 0.006, f"{v:.3f}", ha="center", va="bottom",
-                         fontsize=6.6, color="#92400E")
-
+                ax1.text(b.get_x() + b.get_width() / 2, v + 0.010, f"{v:.3f}", ha="center", va="bottom", fontsize=7.2, fontweight="bold", color=C_OURS)
     ax1.set_xticks(x)
-    ax1.set_xticklabels(cities, fontsize=8.5)
-    ax1.set_ylabel("Group Consensus NDCG@10")
-    ax1.set_title("(a) External Cross-City Zero-Shot Transfer Validation")
-    ax1.set_ylim(0, 0.63)
-    ax1.legend(loc="upper right", ncol=2, frameon=True)
+    ax1.set_xticklabels(domains, fontsize=8.4)
+    ax1.set_ylim(0.0, 0.67)
+    ax1.set_ylabel("Zero-Shot Test NDCG@10 (Zero Target Retraining)")
+    ax1.set_title("(A) Multi-Continent 5-City & Independent 2026 TripWorld Transfer")
+    ax1.legend(loc="upper left", ncol=2, fontsize=7.2)
 
-    # Panel B: Bangladesh 5-City Pilot Ecological & Equity Deployment Audit
-    bd_cities = [r["city"] for r in bd]
-    xb = np.arange(len(bd_cities))
-    eco_bd = [r["fairnet_eco_score_pct"] for r in bd]
-    hg_bd = [r["hidden_gem_exposure_pct"] for r in bd]
-    minsat_bd = [r["fairnet_min_sat"] * 100.0 for r in bd]
+    # Panel B: Unsupervised Spectral Gate gamma(C) & Gini/Eco on External Benchmarks
+    gate_labels = ["Sydney\n(Source)"] + cities + ["TripWorld\n(Osaka)"]
+    gates = [data["datasets"]["sydney_spectral_gate"]] + [d["spectral_gate_activation"] for d in datasets_list]
+    gx = np.arange(len(gate_labels))
+    bar_cols = [C_OURS] + [C_ECO if g < 0.15 else C_LGBM for g in gates[1:]]
+    bars_g = ax2.bar(gx, gates, width=0.58, color=bar_cols, edgecolor=C_DARK, lw=0.6)
+    for b, g in zip(bars_g, gates):
+        ax2.text(b.get_x() + b.get_width() / 2, g + 0.022, f"{g:.3f}", ha="center", va="bottom", fontsize=7.4, fontweight="bold")
+    ax2.set_xticks(gx)
+    ax2.set_xticklabels(gate_labels, fontsize=7.6)
+    ax2.set_ylim(0.0, 0.92)
+    ax2.set_ylabel("Mean Spectral-Support Gate Activation gamma(C)")
+    ax2.set_title("(B) Unsupervised OOD Spectral Gate Suppresses Shift")
+    ax2.axhline(0.50, color=C_SLATE, linestyle="--", lw=1.0, label="Domain Shift Boundary")
+    ax2.legend(loc="upper right", fontsize=7.4)
 
-    wb = 0.26
-    ax2.bar(xb - wb, eco_bd, wb, label="Eco (%)", color=C_ECO, edgecolor=C_DARK, lw=0.5)
-    ax2.bar(xb, minsat_bd, wb, label="MinSat (×100)", color=C_OURS, edgecolor=C_DARK, lw=0.5)
-    ax2.bar(xb + wb, hg_bd, wb, label="Hidden Gem (%)", color=C_LGBM, edgecolor=C_DARK, lw=0.5)
-    ax2.set_xticks(xb)
-    ax2.set_xticklabels(bd_cities, fontsize=8.3, rotation=12)
-    ax2.set_ylabel("Deployment Audit Score (%)")
-    ax2.set_title("(b) Bangladesh 5-City Pilot Audit (43 Real POIs)")
-    ax2.set_ylim(0, 114)
-    ax2.legend(loc="upper center", ncol=3, frameon=True, fontsize=7.4)
-
-    fig.tight_layout(pad=1.4)
-    _save(fig, "fig5_cross_city_transfer")
+    plt.tight_layout()
+    _save(fig, "fig5_multicontinent_and_tripworld")
 
 
-def fig6_multi_xai_faithfulness(data):
+def fig6_xai_faithfulness_benchmark(data):
+    ft = data["multi_xai_evaluation"]["faithfulness_comparison"]
+    steps = list(range(0, 16))
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.4, 4.9))
+    styles = [
+        ("Integrated Gradients (Ours End-to-End)", "-", "o", C_OURS, 2.3),
+        ("Expected Gradients (GradientSHAP)", "--", "s", C_ECO, 1.9),
+        ("Vanilla Gradient Saliency", "-.", "^", C_LGBM, 1.7),
+        ("Input x Gradient", ":", "D", C_MLP, 1.7),
+        ("Random Baseline", "--", "x", C_AGREE, 1.5),
+    ]
+
+    for label, ls, mk, col, lw in styles:
+        d = ft[label]
+        ax1.plot(steps, d["deletion_trajectory"], ls, marker=mk, markersize=4.3, color=col, lw=lw,
+                 label=f"{label.split(' (')[0]} (AUC={d['deletion_auc']:.4f})")
+        ax2.plot(steps, d["insertion_trajectory"], ls, marker=mk, markersize=4.3, color=col, lw=lw,
+                 label=f"{label.split(' (')[0]} (AUC={d['insertion_auc']:.4f})")
+
+    ax1.set_xlabel("Top-k Attributed Features Removed (k)")
+    ax1.set_ylabel("Mean Predicted Positive Probability")
+    ax1.set_title("(A) Perturbation Deletion Curve (Lower AUC = More Faithful)")
+    ax1.legend(loc="upper right", fontsize=7.3)
+
+    ax2.set_xlabel("Top-k Attributed Features Inserted (k)")
+    ax2.set_ylabel("Mean Predicted Positive Probability")
+    ax2.set_title("(B) Perturbation Insertion Curve (Higher AUC = More Faithful)")
+    ax2.legend(loc="lower right", fontsize=7.3)
+
+    plt.tight_layout()
+    _save(fig, "fig6_xai_faithfulness_benchmark")
+
+
+def fig7_xai_concordance_and_casestudy(data):
     mx = data["multi_xai_evaluation"]
-    ig_ranked = mx["integrated_gradients"]["features_ranked"][:10]
+    ig_map = {r["feature"]: r["importance_pct"] for r in mx["integrated_gradients"]["features_unsorted"]}
     shap_map = {r["feature"]: r["importance_pct"] for r in data["shap_feature_importance"]}
-    perm_map = {r["feature"]: r["importance_pct"] for r in mx["permutation_importance"]}
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.6, 5.0), gridspec_kw={"width_ratios": [1.35, 1.0]})
-
-    # Panel A: Top-10 Features across IG vs TreeSHAP vs Permutation
-    fnames = [r["feature"] for r in ig_ranked][::-1]
-    y = np.arange(len(fnames))
-    h = 0.26
-    v_ig = [r["importance_pct"] for r in ig_ranked][::-1]
-    v_sh = [shap_map.get(fn, 0.0) for fn in fnames]
-    v_pm = [perm_map.get(fn, 0.0) for fn in fnames]
-
-    ax1.barh(y + h, v_ig, h, label="FairNet v2 IG (%)", color=C_OURS, edgecolor=C_DARK, lw=0.4)
-    ax1.barh(y, v_sh, h, label="LightGBM TreeSHAP (%)", color=C_LGBM, edgecolor=C_DARK, lw=0.4)
-    ax1.barh(y - h, v_pm, h, label="Permutation NDCG Drop (%)", color=C_ECO, edgecolor=C_DARK, lw=0.4)
-    ax1.set_yticks(y)
-    ax1.set_yticklabels(fnames, fontsize=8.0)
-    ax1.set_xlabel("Normalized Feature Attribution Share (%)")
     conc = mx["cross_xai_concordance"]
-    ax1.set_title(f"(a) Multi-Paradigm XAI Attribution (Spearman ρ={conc['ig_vs_treeshap_spearman_rho']:.3f} IG/SHAP)")
-    ax1.legend(loc="lower right", frameon=True)
 
-    # Panel B: Perturbation Faithfulness Curves (Comprehensiveness & Sufficiency Gap)
-    ig_meta = mx["integrated_gradients"]
-    ks = [1, 3, 5, 7]
-    comp_vals = [ig_meta["comprehensiveness_curve"][f"k{k}"] for k in ks]
-    suff_vals = [ig_meta["sufficiency_curve"][f"k{k}"] for k in ks]
+    # Sort features by FairNet End-to-End IG importance
+    feats_sorted = sorted(ig_map.keys(), key=lambda k: ig_map[k])
+    y = np.arange(len(feats_sorted))
 
-    ax2.plot(ks, comp_vals, marker="o", lw=2.2, color=C_OURS, label="Comprehensiveness ΔP (↑ better)")
-    ax2.plot(ks, suff_vals, marker="s", lw=2.2, linestyle="--", color=C_AGREE, label="Sufficiency Gap |ΔP| (↓ tighter)")
-    ax2.axhline(ig_meta["random_baseline_comp_k3"], color=C_SLATE, linestyle=":", lw=1.4,
-                label=f"Random Drop@k=3 ({ig_meta['random_baseline_comp_k3']:.4f}; {ig_meta['faithfulness_ratio_over_random']:.2f}× Ratio)")
-    for k, cv, sv in zip(ks, comp_vals, suff_vals):
-        ax2.text(k, cv + 0.0007, f"{cv:.4f}", ha="center", fontsize=7.6, color=C_OURS, fontweight="bold")
-        ax2.text(k, sv - 0.0014, f"{sv:.4f}", ha="center", fontsize=7.6, color=C_AGREE)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.0, 5.4), gridspec_kw={"width_ratios": [1.35, 1.0]})
 
-    ax2.set_xticks(ks)
-    ax2.set_xticklabels([f"k = {k}" for k in ks])
-    ax2.set_xlabel("Top-k Attributed Features Perturbed (15 total)")
-    ax2.set_ylabel("Mean Prediction Shift (Probability)")
-    ax2.set_title(f"(b) Quantitative Faithfulness (Axiom 1 MAE={ig_meta['completeness_mae']:.1e})")
-    ax2.set_ylim(0, 0.025)
-    ax2.legend(loc="upper right", frameon=True)
+    h = 0.37
+    ig_v = [ig_map[f] for f in feats_sorted]
+    sh_v = [shap_map[f] for f in feats_sorted]
+    ax1.barh(y + h / 2, ig_v, height=h, color=C_OURS, edgecolor=C_DARK, lw=0.45, label="FairNet v3 E2E IG (%)")
+    ax1.barh(y - h / 2, sh_v, height=h, color=C_LGBM, edgecolor=C_DARK, lw=0.45, label="LightGBM TreeSHAP (%)")
+    ax1.set_yticks(y)
+    ax1.set_yticklabels(feats_sorted, fontsize=7.6)
+    ax1.set_xlabel("Normalized Global Attribution Share (%)")
+    ax1.set_title(
+        f"(A) FairNet v3 vs LightGBM Attributions (r = {conc['ig_vs_treeshap_pearson_r']:.3f}, "
+        f"p = {conc['ig_vs_treeshap_pearson_p']:.1e})\n"
+        f"Note Fairness Shift: Budget Gap 10.1% vs 2.9% | Max-Member 3.4% vs 10.3%"
+    )
+    ax1.legend(loc="lower right", fontsize=7.5)
 
-    fig.tight_layout(pad=1.4)
-    _save(fig, "fig6_multi_xai_faithfulness")
+    # Panel B: Worked Case Study 1 (sydney_grp_1021) Member Utilities, Budgets & Attention Weights
+    cs = mx["worked_case_studies"][0]
+    top_rec = cs["top_recommendation"]
+    M = cs["group_size"]
+    m_labels = [f"Member {i+1}\n(Budget={cs['member_budgets'][i]:.2f})" for i in range(M)]
+    mx_pos = np.arange(M)
+    bw = 0.34
+    ax2.bar(mx_pos - bw / 2, top_rec["cross_attention_weights"], width=bw, color=C_OURS, edgecolor=C_DARK, label="Cross-Attn Weight alpha_u")
+    ax2.bar(mx_pos + bw / 2, top_rec["member_utilities"], width=bw, color=C_ECO, edgecolor=C_DARK, label="Predicted Utility U_u(p)")
+    for i in range(M):
+        ax2.text(i - bw / 2, top_rec["cross_attention_weights"][i] + 0.015, f"{top_rec['cross_attention_weights'][i]:.3f}", ha="center", fontsize=7.5, fontweight="bold", color=C_OURS)
+        ax2.text(i + bw / 2, top_rec["member_utilities"][i] + 0.015, f"{top_rec['member_utilities'][i]:.3f}", ha="center", fontsize=7.5, fontweight="bold", color=C_ECO)
+    ax2.set_xticks(mx_pos)
+    ax2.set_xticklabels(m_labels, fontsize=8.0)
+    ax2.set_ylim(0, 0.85)
+    ax2.set_ylabel("Weight / Utility Score")
+    ax2.set_title(
+        f"(B) Worked Case Study ({cs['group_id']}: {top_rec['name']})\n"
+        f"Rawlsian Priority Weighting Equalizes Utility (Gini = {top_rec['gini']:.4f})"
+    )
+    ax2.legend(loc="upper right", fontsize=7.4)
+
+    plt.tight_layout()
+    _save(fig, "fig7_xai_concordance_and_casestudy")
 
 
-def fig7_swipe_and_nash_recourse(data):
+def fig8_active_swipe_and_nash(data):
     sw = data["active_swipe_learning_curve"]
     audit = data["multi_xai_evaluation"]["attention_and_counterfactual_audit"]
     attn = audit["cross_attention_audit"]
     nash = audit["nash_counterfactual_recourse"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.2, 4.6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.4, 4.7))
 
-    # Panel A: Active Bayesian EIG Cold-Start Curve
-    ks = [r["swipes"] for r in sw]
-    ax1.plot(ks, [r["bayesian_eig_cos"] for r in sw], marker="o", lw=2.2, color=C_OURS, label="Bayesian EIG Active Probe")
-    ax1.plot(ks, [r["random_swipe_cos"] for r in sw], marker="s", lw=1.8, linestyle="--", color=C_SLATE, label="Random Card Sampling")
-    for r in sw:
-        ax1.text(r["swipes"], r["bayesian_eig_cos"] + 0.022, f"{r['bayesian_eig_cos']:.3f}", ha="center", fontsize=7.6, color=C_OURS)
-    ax1.set_xticks(ks)
-    ax1.set_xlabel("Number of Interactive Visual Card Swipes")
-    ax1.set_ylabel("Cosine Alignment with Latent User Taste (n = 120)")
-    ax1.set_title("(a) Cold-Start Taste Elicitation Curve")
-    ax1.set_ylim(0.25, 1.0)
-    ax1.legend(loc="lower right", frameon=True)
+    xs = [r["swipes"] for r in sw]
+    by = [r["bayesian_eig_cos"] for r in sw]
+    ry = [r["random_swipe_cos"] for r in sw]
+    ax1.plot(xs, by, "o-", color=C_OURS, lw=2.3, ms=6.5, label="Gaussian BALD EIG Swipes (Ours)")
+    ax1.plot(xs, ry, "s--", color=C_AGREE, lw=1.9, ms=5.5, label="Random Swipe Baseline")
+    ax1.fill_between(xs, ry, by, color=C_SKY, alpha=0.18)
+    for k, b, rv in zip(xs, by, ry):
+        dy = -0.036 if b < rv else 0.022
+        ax1.text(k, b + dy, f"{b:.3f}", ha="center", fontsize=7.4, fontweight="bold", color=C_OURS)
+    ax1.set_xlabel("Cold-Start Preference Swipes (k)")
+    ax1.set_ylabel("Latent Taste Alignment (Cosine Similarity)")
+    ax1.set_ylim(0.10, 0.82)
+    ax1.set_title("(A) Cold-Start Taste Elicitation (120 Synthetic Travelers)")
+    ax1.legend(loc="lower right", fontsize=7.6)
 
-    # Panel B: Cross-Attention Budget Protection & Nash Counterfactual Recourse
-    cats = [
-        "Low-Budget\nAttn", "Uniform\nRef.", "High-Budget\nAttn",
-        "MinSat\nBefore", "MinSat\nNash", "Gini×10\nBefore", "Gini×10\nAfter"
-    ]
+    # Panel B: Cross-Attention Budget Protection & Nash Recourse
+    cats = ["Lowest-Budget\nMember Attn", "Uniform\nBaseline (1/M)", "Highest-Budget\nMember Attn", "Veto Min-Sat\n(Before)", "Nash Recourse\nMin-Sat (After)"]
     vals = [
         attn["lowest_budget_member_mean_attn"],
         attn["uniform_weight_expected"],
         attn["highest_budget_member_mean_attn"],
         nash["mean_min_member_sat_before"],
         nash["mean_min_member_sat_after"],
-        nash["mean_gini_before"] * 10.0,
-        nash["mean_gini_after"] * 10.0,
     ]
-    cols = [C_ECO, C_SLATE, C_SKY, C_LGBM, C_OURS, C_AGREE, C_ECO]
-    x = np.arange(len(cats))
-    bars = ax2.bar(x, vals, color=cols, edgecolor=C_DARK, lw=0.6, width=0.62)
+    cols = [C_OURS, C_SLATE, C_AGREE, C_LGBM, C_ECO]
+    bars = ax2.bar(np.arange(len(cats)), vals, width=0.56, color=cols, edgecolor=C_DARK, lw=0.6)
     for b, v in zip(bars, vals):
-        ax2.text(b.get_x() + b.get_width() / 2, v + 0.015, f"{v:.3f}", ha="center", va="bottom", fontsize=7.6, fontweight="bold")
-    ax2.axvline(2.5, color="#94A3B8", linestyle="--", lw=1.0)
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(cats, fontsize=7.4)
-    ax2.set_ylabel("Weight / Satisfaction / Scaled Inequality")
-    ax2.set_title(f"(b) Attention Equity & Nash Recourse (Welfare +{nash['mean_nash_welfare_gain_pct']:.2f}%)")
+        ax2.text(b.get_x() + b.get_width() / 2, v + 0.015, f"{v:.4f}", ha="center", fontsize=7.5, fontweight="bold")
+    ax2.set_xticks(np.arange(len(cats)))
+    ax2.set_xticklabels(cats, fontsize=7.5)
     ax2.set_ylim(0, 0.78)
+    ax2.set_ylabel("Mean Attention Weight / Satisfaction")
+    ax2.set_title(f"(B) Budget Equity & Nash Recourse (+{nash['mean_nash_welfare_gain_pct']:.2f}% Welfare, N=80)")
 
-    fig.tight_layout(pad=1.4)
-    _save(fig, "fig7_swipe_and_nash_recourse")
+    plt.tight_layout()
+    _save(fig, "fig8_active_swipe_and_nash")
 
 
-def fig8_travelplanner_neurosymbolic(data):
+def fig9_travelplanner_and_bd_pilot(data):
     tp = data["travelplanner_rag_evaluation"]
-    pub = tp["published_icml2024_zeroshot_final_pass"]
-    van = tp["vanilla_llm"]
-    ts = tp["tripsense_neuro_symbolic_rag"]
+    bd = data["bangladesh_5city_pilot"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.0, 4.5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.6, 4.8))
 
-    # Panel A: TravelPlanner 180-Task Verification Comparison
-    metrics = ["Entity\nGrounding (%)", "Hard Budget\nFeasibility (%)", "Strict Final\nPass Rate (%)"]
-    v_vals = [van["entity_grounding_pct"], van["budget_feasibility_pct"], van["final_pass_rate_pct"]]
-    t_vals = [ts["entity_grounding_pct"], ts["budget_feasibility_pct"], ts["final_pass_rate_pct"]]
-
-    x = np.arange(len(metrics))
+    # Panel A: TravelPlanner 180 tasks
+    metrics_tp = ["Entity\nGrounding %", "Hard Budget\nFeasibility %", "Final Plan\nPass Rate %", "Hallucination\nRate % (Low Better)"]
+    v_vals = [
+        tp["vanilla_llm"]["entity_grounding_pct"],
+        tp["vanilla_llm"]["budget_feasibility_pct"],
+        tp["vanilla_llm"]["final_pass_rate_pct"],
+        tp["vanilla_llm"]["hallucination_rate_pct"],
+    ]
+    o_vals = [
+        tp["tripsense_neuro_symbolic_rag"]["entity_grounding_pct"],
+        tp["tripsense_neuro_symbolic_rag"]["budget_feasibility_pct"],
+        tp["tripsense_neuro_symbolic_rag"]["final_pass_rate_pct"],
+        tp["tripsense_neuro_symbolic_rag"]["hallucination_rate_pct"],
+    ]
+    x = np.arange(len(metrics_tp))
     w = 0.34
-    b1 = ax1.bar(x - w / 2, v_vals, w, label="Vanilla Unconstrained LLM", color=C_AGREE, edgecolor=C_DARK, lw=0.6)
-    b2 = ax1.bar(x + w / 2, t_vals, w, label=f"TripSense Neuro-Symbolic ({tp['avg_verify_ms']:.3f} ms)", color=C_ECO, edgecolor=C_DARK, lw=0.6)
-    for b in list(b1) + list(b2):
-        h = b.get_height()
-        ax1.text(b.get_x() + b.get_width() / 2, h + 1.5, f"{h:.1f}%", ha="center", va="bottom", fontsize=8.0, fontweight="bold")
+    b1 = ax1.bar(x - w / 2, v_vals, width=w, color=C_AGREE, edgecolor=C_DARK, label="Unconstrained Baseline")
+    b2 = ax1.bar(x + w / 2, o_vals, width=w, color=C_ECO, edgecolor=C_DARK, label="TripSense Neuro-Symbolic Verifier")
+    for b, v in zip(b1, v_vals):
+        ax1.text(b.get_x() + b.get_width() / 2, v + 1.8, f"{v:.1f}%", ha="center", fontsize=7.3)
+    for b, v in zip(b2, o_vals):
+        ax1.text(b.get_x() + b.get_width() / 2, v + 1.8, f"{v:.1f}%", ha="center", fontsize=7.3, fontweight="bold", color=C_ECO)
     ax1.set_xticks(x)
-    ax1.set_xticklabels(metrics, fontsize=8.5)
-    ax1.set_ylabel("Validation Pass / Grounding Rate (%)")
-    ax1.set_title(f"(a) osunlp/TravelPlanner Benchmark (N = {tp['num_tasks']} Tasks)")
-    ax1.set_ylim(0, 126)
-    ax1.legend(loc="upper center", ncol=1, frameon=True)
+    ax1.set_xticklabels(metrics_tp, fontsize=7.8)
+    ax1.set_ylim(0, 114)
+    ax1.set_ylabel("Percentage (%) across 180 Tasks")
+    ax1.set_title(f"(A) TravelPlanner Verification (Verify Time = {tp['avg_verify_ms']:.3f} ms/task)")
+    ax1.legend(loc="upper right", fontsize=7.3)
 
-    # Panel B: Zero-Shot Final Pass Rate vs Published ICML 2024 Baselines
-    models = ["GPT-3.5 Zero-Shot\n(ICML 2024)", "GPT-4 Zero-Shot\n(ICML 2024)", "Vanilla LLM\n(TravelPlanner)", "TripSense RAG +\nVerifier (Ours)"]
-    p_vals = [pub["gpt_3_5_pct"], pub["gpt_4_pct"], van["final_pass_rate_pct"], ts["final_pass_rate_pct"]]
-    p_cols = [C_SLATE, C_LGBM, C_AGREE, C_OURS]
-    xp = np.arange(len(models))
-    bp = ax2.bar(xp, p_vals, width=0.55, color=p_cols, edgecolor=C_DARK, lw=0.6)
-    for b, v in zip(bp, p_vals):
-        ax2.text(b.get_x() + b.get_width() / 2, v + 1.4, f"{v:.1f}%", ha="center", va="bottom", fontsize=8.5, fontweight="bold")
-    ax2.set_xticks(xp)
-    ax2.set_xticklabels(models, fontsize=8.2)
-    ax2.set_ylabel("Strict Final Pass Rate (%)")
-    ax2.set_title("(b) Final Plan Feasibility vs. Published Baselines")
-    ax2.set_ylim(0, 66)
+    # Panel B: Bangladesh 5-City Eco & Gini Pilot
+    cnames = [r["city"] for r in bd]
+    cx = np.arange(len(cnames))
+    eco_v = [r["fairnet_eco_score_pct"] for r in bd]
+    ginis = [r["fairnet_gini"] for r in bd]
+    bars_e = ax2.bar(cx, eco_v, width=0.46, color=C_ECO, edgecolor=C_DARK, alpha=0.88, label="Mean Top-5 Eco Score (%)")
+    for b, v in zip(bars_e, eco_v):
+        ax2.text(b.get_x() + b.get_width() / 2, v + 1.5, f"{v:.1f}%", ha="center", fontsize=7.4, fontweight="bold", color=C_ECO)
+    ax2.set_xticks(cx)
+    ax2.set_xticklabels(cnames, fontsize=8.0)
+    ax2.set_ylim(0, 106)
+    ax2.set_ylabel("Mean Eco Score (%)", color=C_ECO)
 
-    fig.tight_layout(pad=1.4)
-    _save(fig, "fig8_travelplanner_neurosymbolic")
+    ax2_r = ax2.twinx()
+    ax2_r.plot(cx, ginis, "o-", color=C_OURS, lw=2.0, ms=6.5, label="FairNet v3 Gini (Right)")
+    ax2_r.set_ylabel("Group Gini Inequality (Lower Better)", color=C_OURS)
+    ax2_r.set_ylim(0.0, 0.12)
+    ax2_r.grid(False)
+    ax2.set_title("(B) Field Pilot Audit Across 5 Bangladeshi Destinations")
+    l1, lb1 = ax2.get_legend_handles_labels()
+    l2, lb2 = ax2_r.get_legend_handles_labels()
+    ax2.legend(l1 + l2, lb1 + lb2, loc="lower left", fontsize=7.3)
+
+    plt.tight_layout()
+    _save(fig, "fig9_travelplanner_and_bd_pilot")
+
+
+def fig10_training_and_latency(data):
+    hist = data["fairnet_training"]["history"]
+    ms = data["multi_seed_stability"]
+    comp = data["group_consensus_comparison"]
+    lat = data["latency_profile"]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.6, 4.8))
+
+    # Panel A: Training Convergence
+    eps = [h["epoch"] for h in hist]
+    ax1.plot(eps, [h["val_ndcg10"] for h in hist], "o-", color=C_OURS, lw=2.1, ms=4.5, label="Val NDCG@10 (Left)")
+    ax1.plot(eps, [h["val_min_sat"] for h in hist], "s--", color=C_ECO, lw=1.7, ms=4.0, label="Val MinSat (Left)")
+    ax1.set_xlabel("Training Epoch")
+    ax1.set_ylabel("Validation NDCG@10 / MinSat")
+    ax1_r = ax1.twinx()
+    ax1_r.plot(eps, [h["train_loss"] for h in hist], "^:", color=C_AGREE, lw=1.8, ms=4.2, label="Dual-Path Pareto Loss (Right)")
+    ax1_r.set_ylabel("Training Loss", color=C_AGREE)
+    ax1_r.grid(False)
+    ax1.set_title(f"(A) FairNet v3 Convergence (Best Val = {data['fairnet_training']['best_val_ndcg10']:.4f})")
+    l1, lb1 = ax1.get_legend_handles_labels()
+    l2, lb2 = ax1_r.get_legend_handles_labels()
+    ax1.legend(l1 + l2, lb1 + lb2, loc="center right", fontsize=7.3)
+
+    # Panel B: 5-Seed Stability Comparison across Top 5 Models
+    models_ms = ["fairnet_v3", "lgbm", "groupim", "agree", "lambdarank"]
+    labels_ms = ["FairNet v3\n(Ours)", "LightGBM\nGBDT", "GroupIM\n(SIGIR'20)", "AGREE\n(SIGIR'18)", "LGBM\nLambdaRank"]
+    cols_ms = [C_OURS, C_LGBM, C_SKY, C_AGREE, C_MLP]
+    means = [ms[m]["ndcg10_mean"] for m in models_ms]
+    stds = [ms[m]["ndcg10_std"] for m in models_ms]
+    g_means = [ms[m]["gini_index_mean"] for m in models_ms]
+
+    mx = np.arange(len(models_ms))
+    bars_m = ax2.bar(mx, means, yerr=stds, capsize=4, width=0.52, color=cols_ms, edgecolor=C_DARK, lw=0.6)
+    for b, mval, sval, gval in zip(bars_m, means, stds, g_means):
+        ax2.text(b.get_x() + b.get_width() / 2, mval + sval + 0.010, f"{mval:.3f}\n(G={gval:.3f})", ha="center", va="bottom", fontsize=7.1, fontweight="bold")
+    ax2.set_xticks(mx)
+    ax2.set_xticklabels(labels_ms, fontsize=7.8)
+    ax2.set_ylim(0.32, 0.62)
+    ax2.set_ylabel("5-Seed Mean Test NDCG@10 (± Std)")
+    ax2.set_title(f"(B) 5-Seed Stability & Runtime ({lat['gpu_ms_per_100_cands']}ms GPU / {lat['cpu_ms_per_100_cands']}ms CPU)")
+
+    plt.tight_layout()
+    _save(fig, "fig10_training_and_latency")
 
 
 def main():
-    with open(METRICS_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = json.load(open(METRICS_PATH, "r", encoding="utf-8"))
     fig1_architecture_overview(data)
     fig2_model_benchmark_and_cd(data)
-    fig3_fairness_accuracy_pareto(data)
+    fig3_pareto_and_sensitivity(data)
     fig4_ablation_and_scaling(data)
-    fig5_cross_city_transfer(data)
-    fig6_multi_xai_faithfulness(data)
-    fig7_swipe_and_nash_recourse(data)
-    fig8_travelplanner_neurosymbolic(data)
-    print(f"[DONE] All 8 Q1 figures generated cleanly in {OUT_DIR}")
+    fig5_multicontinent_and_tripworld(data)
+    fig6_xai_faithfulness_benchmark(data)
+    fig7_xai_concordance_and_casestudy(data)
+    fig8_active_swipe_and_nash(data)
+    fig9_travelplanner_and_bd_pilot(data)
+    fig10_training_and_latency(data)
+    print(f"[DONE] All 10 vector PDF + 300-DPI PNG figures saved to {OUT_DIR}", flush=True)
 
 
 if __name__ == "__main__":

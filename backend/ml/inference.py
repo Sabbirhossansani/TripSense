@@ -85,6 +85,10 @@ class FairNetInference:
                     num_heads=cfg.get("num_heads", 4),
                     use_attention=cfg.get("use_attention", True),
                     use_relational_stream=cfg.get("use_relational_stream", True),
+                    use_member_sab=cfg.get("use_member_sab", False),
+                    use_hadamard=cfg.get("use_hadamard", True),
+                    use_spectral_gate=cfg.get("use_spectral_gate", True),
+                    subspace_rank=cfg.get("subspace_rank", 48),
                 ).to(self.device)
                 model.load_state_dict(ckpt["model_state_dict"])
                 model.eval()

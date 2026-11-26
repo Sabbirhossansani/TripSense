@@ -33,7 +33,7 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
     fairness_score: 78.4,
     gini_index: 0.063,
     satisfaction_disparity: 14.4,
-    model_used: "TripSense-FairNet v2",
+    model_used: "TripSense-FairNet v3 (GeoFairFormer)",
     member_average_satisfaction: { Rahat: 71.2, Sadia: 66.8, Fahim: 62.5 },
   };
 
@@ -56,9 +56,11 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
   const multiSeed = mlMetrics?.multi_seed_stability || null;
   const ablations = mlMetrics?.ablation_study || [];
   const externalCities = mlMetrics?.external_cross_city_validation || null;
+  const tripWorld = mlMetrics?.tripworld_external_validation || null;
   const bdPilot = mlMetrics?.bangladesh_5city_pilot || [];
   const multiXai = mlMetrics?.multi_xai_evaluation || null;
   const igData = multiXai?.integrated_gradients || null;
+  const faithfulnessBench = multiXai?.faithfulness_comparison || null;
   const igFeatures = igData?.features_ranked || [];
   const shapFeatures = mlMetrics?.shap_feature_importance || [];
   const concordance = multiXai?.cross_xai_concordance || null;
@@ -94,12 +96,12 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
           <span>Q1 JOURNAL RESEARCH BENCHMARK & SUSTAINABILITY LAB</span>
         </div>
         <h2 className="font-display" style={{ fontSize: "24px", fontWeight: 900, margin: "0 0 6px 0" }}>
-          TripSense-FairNet v2: Consensus, Multi-XAI & Cross-City Lab
+          TripSense-FairNet v3 (GeoFairFormer): Multi-Continent, Multi-XAI & Recourse Lab
         </h2>
         <p style={{ fontSize: "13px", color: "#D6D1C7", margin: 0, lineHeight: 1.55 }}>
-          Active Model: <strong>{fairness.model_used || "TripSense-FairNet v2"}</strong> • Backbone:{" "}
+          Active Model: <strong>{fairness.model_used || "TripSense-FairNet v3 (GeoFairFormer)"}</strong> • Backbone:{" "}
           <span className="font-mono-num">{mlMetrics?.backbone || "openai/clip-vit-base-patch32"}</span> • Primary:{" "}
-          <strong>{mlMetrics?.datasets?.group_poi_benchmark || "Massive-STEPS-Sydney"}</strong> + <strong>Melbourne / Tokyo / New-York</strong>.
+          <strong>{mlMetrics?.datasets?.group_poi_benchmark || "Massive-STEPS-Sydney"}</strong> + <strong>5-Continent Zero-Shot & TripWorld-Osaka (77,500 POIs)</strong>.
           {multiSeed && (
             <>
               {" "}• {multiSeed.seeds?.length || 5}-Seed Mean NDCG@10:{" "}
@@ -168,7 +170,7 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <Award size={18} color="#E85D2A" />
               <h3 className="font-display" style={{ fontSize: "19px", fontWeight: 800, margin: 0 }}>
-                10-Model Sydney Benchmark ({mlMetrics?.datasets?.test_groups || 180} Test Groups, 100-Candidate Pools)
+                {Object.keys(comparison).length}-Model Sydney Benchmark ({mlMetrics?.datasets?.test_groups || 180} Test Groups, 100-Candidate Pools)
               </h3>
             </div>
             {stats && (
@@ -236,8 +238,8 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
               <thead>
                 <tr style={{ background: "var(--bg-surface)", borderBottom: "1.5px solid var(--stone-border)", textAlign: "left" }}>
-                  <th style={{ padding: "8px", fontWeight: 800 }}>City (POIs)</th>
-                  <th style={{ padding: "8px", fontWeight: 800 }}>FairNet v2</th>
+                  <th style={{ padding: "8px", fontWeight: 800 }}>City / Dataset (POIs)</th>
+                  <th style={{ padding: "8px", fontWeight: 800 }}>FairNet v3</th>
                   <th style={{ padding: "8px", fontWeight: 800 }}>LightGBM</th>
                   <th style={{ padding: "8px", fontWeight: 800 }}>AGREE</th>
                   <th style={{ padding: "8px", fontWeight: 800 }}>Eco %</th>
@@ -245,12 +247,12 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
               </thead>
               <tbody>
                 {Object.entries(externalCities).map(([cname, cdata]) => {
-                  const fn = cdata.models?.["TripSense-FairNet v2 (Zero-Shot)"];
-                  const lg = cdata.models?.["LightGBM (Zero-Shot)"];
+                  const fn = cdata.models?.["TripSense-FairNet v3 (Zero-Shot)"] || cdata.models?.["TripSense-FairNet v2 (Zero-Shot)"];
+                  const lg = cdata.models?.["LightGBM Cls (Zero-Shot)"] || cdata.models?.["LightGBM (Zero-Shot)"];
                   const ag = cdata.models?.["AGREE (Zero-Shot)"];
                   return (
                     <tr key={cname} style={{ borderBottom: "1px solid var(--stone-muted)" }}>
-                      <td style={{ padding: "8px", fontWeight: 700 }}>{cname} ({cdata.num_venues})</td>
+                      <td style={{ padding: "8px", fontWeight: 700 }}>{cname} ({cdata.num_venues?.toLocaleString?.() || cdata.num_venues})</td>
                       <td className="font-mono-num" style={{ padding: "8px", fontWeight: 800, color: "var(--alpine-moss)" }}>{fn?.ndcg10 ?? "—"}</td>
                       <td className="font-mono-num" style={{ padding: "8px" }}>{lg?.ndcg10 ?? "—"}</td>
                       <td className="font-mono-num" style={{ padding: "8px" }}>{ag?.ndcg10 ?? "—"}</td>
@@ -258,6 +260,20 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
                     </tr>
                   );
                 })}
+                {tripWorld && (() => {
+                  const twFn = tripWorld.models?.["TripSense-FairNet v3 (Zero-Shot)"];
+                  const twLg = tripWorld.models?.["LightGBM Cls (Zero-Shot)"];
+                  const twAg = tripWorld.models?.["AGREE (Zero-Shot)"];
+                  return (
+                    <tr style={{ background: "var(--alpine-moss-soft)", borderBottom: "1px solid var(--stone-muted)" }}>
+                      <td style={{ padding: "8px", fontWeight: 800, color: "var(--alpine-moss)" }}>TripWorld-Osaka ({tripWorld.num_venues?.toLocaleString?.() || tripWorld.num_venues})</td>
+                      <td className="font-mono-num" style={{ padding: "8px", fontWeight: 900, color: "var(--alpine-moss)" }}>{twFn?.ndcg10 ?? "—"}</td>
+                      <td className="font-mono-num" style={{ padding: "8px" }}>{twLg?.ndcg10 ?? "—"}</td>
+                      <td className="font-mono-num" style={{ padding: "8px" }}>{twAg?.ndcg10 ?? "—"}</td>
+                      <td className="font-mono-num" style={{ padding: "8px", color: "var(--safety-orange)", fontWeight: 800 }}>{twFn?.eco_coverage_pct ?? "—"}%</td>
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
 
@@ -285,7 +301,7 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
               <Layers size={17} color="#25463B" />
               <h3 style={{ fontSize: "15px", fontWeight: 800, margin: 0 }}>
-                7-Variant Component Ablation (Sydney)
+                {ablations.length}-Variant Component Ablation (Sydney & External)
               </h3>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
@@ -339,8 +355,15 @@ export default function FairnessInsightsTab({ plan, consensusStrategy, city, cur
                   <div className="font-mono-num" style={{ fontSize: "13px", fontWeight: 900, color: "var(--safety-orange)" }}>{igData.faithfulness_ratio_over_random}×</div>
                 </div>
                 <div style={{ background: "var(--bg-surface)", borderRadius: "10px", padding: "8px", border: "1px solid var(--stone-border)" }}>
-                  <div style={{ fontSize: "10px", fontWeight: 800, color: "var(--granite-600)" }}>IG / SHAP ρ</div>
-                  <div className="font-mono-num" style={{ fontSize: "13px", fontWeight: 900 }}>{concordance?.ig_vs_treeshap_spearman_rho ?? "—"}</div>
+                  <div style={{ fontSize: "10px", fontWeight: 800, color: "var(--granite-600)" }}>IG / EG ρ • INS AUC</div>
+                  <div className="font-mono-num" style={{ fontSize: "13px", fontWeight: 900 }}>
+                    {concordance?.ig_vs_expected_grad_spearman_rho ?? concordance?.ig_vs_treeshap_spearman_rho ?? "—"}
+                    {(() => {
+                      const insAuc = faithfulnessBench?.["Integrated Gradients (Ours End-to-End)"]?.insertion_auc
+                        ?? faithfulnessBench?.["Integrated Gradients (E2E)"]?.insertion_auc;
+                      return insAuc ? ` • ${insAuc}` : "";
+                    })()}
+                  </div>
                 </div>
               </div>
             )}
